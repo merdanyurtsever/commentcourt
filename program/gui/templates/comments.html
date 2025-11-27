@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Comments - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1><i class="bi bi-chat-dots me-2"></i>Comments</h1>
+        <p class="text-muted">Browse all analyzed comments</p>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Filter by Sentiment</label>
+                <select name="sentiment" class="form-select">
+                    <option value="">All Sentiments</option>
+                    <option value="positive" {% if sentiment_filter == 'positive' %}selected{% endif %}>Positive</option>
+                    <option value="negative" {% if sentiment_filter == 'negative' %}selected{% endif %}>Negative</option>
+                    <option value="neutral" {% if sentiment_filter == 'neutral' %}selected{% endif %}>Neutral</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Filter by Influencer</label>
+                <select name="influencer" class="form-select">
+                    <option value="">All Influencers</option>
+                    {% for inf in influencers %}
+                    <option value="{{ inf.id }}" {% if influencer_filter == inf.id %}selected{% endif %}>{{ inf.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-filter me-1"></i>Apply Filters
+                </button>
+                <a href="{{ url_for('comments_list') }}" class="btn btn-outline-secondary">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Comments List -->
+<div class="card">
+    <div class="card-body">
+        {% if comments %}
+            {% for comment in comments %}
+            <div class="comment-card comment-{{ comment.sentiment.value if comment.sentiment else 'neutral' }}">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        {% if comment.sentiment %}
+                        <span class="badge bg-{{ comment.sentiment.value|sentiment_color }}">
+                            {{ comment.sentiment.value|capitalize }}
+                        </span>
+                        {% else %}
+                        <span class="badge bg-light text-dark">Not analyzed</span>
+                        {% endif %}
+                        
+                        {% if comment.confidence %}
+                        <small class="text-muted ms-2">{{ (comment.confidence * 100)|round(0) }}% confidence</small>
+                        {% endif %}
+                        
+                        {% if comment.model_used %}
+                        <small class="text-muted ms-2"><i class="bi bi-cpu me-1"></i>{{ comment.model_used }}</small>
+                        {% endif %}
+                    </div>
+                    <div class="text-end">
+                        {% if comment.platform %}
+                        <span class="badge bg-light text-dark me-1">{{ comment.platform.value }}</span>
+                        {% endif %}
+                        <small class="text-muted">
+                            {{ comment.created_at.strftime('%Y-%m-%d %H:%M') if comment.created_at else '' }}
+                        </small>
+                    </div>
+                </div>
+                
+                <p class="mb-2">{{ comment.text }}</p>
+                
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        {% if comment.product_name %}
+                        <small class="text-muted"><i class="bi bi-box me-1"></i>{{ comment.product_name }}</small>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <a href="{{ url_for('influencer_detail', influencer_id=comment.influencer_id) }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-person me-1"></i>View Influencer
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-center text-muted p-5">
+                <i class="bi bi-chat fs-1 d-block mb-3"></i>
+                <h5>No comments found</h5>
+                <p>{% if sentiment_filter or influencer_filter %}Try adjusting your filters.{% else %}Run the analysis pipeline to process comments.{% endif %}</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if total_pages > 1 %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        <li class="page-item {% if page == 1 %}disabled{% endif %}">
+            <a class="page-link" href="?page={{ page - 1 }}{% if sentiment_filter %}&sentiment={{ sentiment_filter }}{% endif %}{% if influencer_filter %}&influencer={{ influencer_filter }}{% endif %}">Previous</a>
+        </li>
+        
+        {% for p in range(1, total_pages + 1) %}
+            {% if p == page %}
+            <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+            {% elif p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ p }}{% if sentiment_filter %}&sentiment={{ sentiment_filter }}{% endif %}{% if influencer_filter %}&influencer={{ influencer_filter }}{% endif %}">{{ p }}</a>
+            </li>
+            {% elif p == page - 3 or p == page + 3 %}
+            <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% endif %}
+        {% endfor %}
+        
+        <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+            <a class="page-link" href="?page={{ page + 1 }}{% if sentiment_filter %}&sentiment={{ sentiment_filter }}{% endif %}{% if influencer_filter %}&influencer={{ influencer_filter }}{% endif %}">Next</a>
+        </li>
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

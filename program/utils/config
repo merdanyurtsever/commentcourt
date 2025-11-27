@@ -1,0 +1,71 @@
+# CommentCourt Configuration
+# ===========================
+
+app_name: CommentCourt
+version: "1.0.0"
+environment: development
+
+# Database Configuration
+database:
+  path: database/db.sqlite3
+  echo: false
+
+# ML Model Configuration
+model:
+  models_dir: model/weights
+  experiments_dir: model/experiments
+  selection_metric: f1_score
+  auto_train: true
+  default_models:
+    - rule_based
+    - logistic_regression
+    - lstm
+    - bert_turkish
+
+# Pipeline Configuration
+pipeline:
+  raw_data_dir: database/raw
+  processed_data_dir: database/processed
+  batch_size: 100
+  max_comments_per_run: 10000
+
+# Scoring Configuration
+scoring:
+  scale: 10  # Score out of 10 (change to 5 for 5-star rating)
+  positive_weight: 1.0
+  negative_weight: -0.5
+  neutral_weight: 0.1
+  min_comments_for_ranking: 5
+  use_confidence_weighting: true
+  use_temporal_weighting: true
+
+# GUI Configuration
+gui:
+  host: "127.0.0.1"
+  port: 5000
+  debug: true
+  secret_key: "change-this-in-production"
+  items_per_page: 20
+  theme: light
+
+# Logging Configuration
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: logs/app.log
+  max_bytes: 10485760
+  backup_count: 5
+
+# Influencer Configuration
+influencers:
+  - name: "Influencer A"
+    storefronts:
+      - platform: trendyol
+        url: "https://www.trendyol.com/...."
+      - platform: n11
+        url: "https://www.n11.com/...."
+
+  - name: "Influencer B"
+    storefronts:
+      - platform: hepsiburada
+        url: "https://www.hepsiburada.com/..."
