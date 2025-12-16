@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>{{ influencer.name }}</h1>
+<p>Overall score: {{ influencer.overall_score }}</p>
+<h3>Recent comments</h3>
+<ul>
+  {% for c in comments %}
+  <li>{{ c.text }} — {{ c.sentiment }}</li>
+  {% else %}
+  <li>No recent comments</li>
+  {% endfor %}
+</ul>
+{% endblock %}

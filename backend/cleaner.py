@@ -279,8 +279,7 @@ class CommentCleaner(TextCleaner):
         super().__init__(config)
         
         # E-commerce specific patterns
-        self.order_number_pattern = re.compile(r'sipariş\s*(?:no|numarası?)?\s*:?
-\s*\d+', re.IGNORECASE)
+        self.order_number_pattern = re.compile(r"sipariş\s*(?:no|numarası?)?\s*:?\s*\d+", re.IGNORECASE)
         self.date_pattern = re.compile(r'\d{1,2}[./]\d{1,2}[./]\d{2,4}')
         self.price_pattern = re.compile(r'\d+[.,]?\d*\s*(?:TL|₺|lira)', re.IGNORECASE)
     

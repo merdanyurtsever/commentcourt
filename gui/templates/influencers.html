@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Influencers</h1>
+<ul>
+  {% for inf in influencers %}
+  <li><a href="{{ url_for('influencer_detail', influencer_id=inf.id) }}">{{ inf.name }}</a> — Score: {{ inf.overall_score }}</li>
+  {% else %}
+  <li>No influencers</li>
+  {% endfor %}
+</ul>
+{% endblock %}

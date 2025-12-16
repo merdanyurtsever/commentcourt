@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Comments</h1>
+<ul>
+  {% for c in comments %}
+  <li>{{ c.text }} — {{ c.sentiment }}</li>
+  {% else %}
+  <li>No comments</li>
+  {% endfor %}
+</ul>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Dashboard</h1>
+<div class="row">
+  <div class="col-md-6">
+    <h3>Statistics</h3>
+    <pre>{{ stats | tojson(indent=2) }}</pre>
+  </div>
+  <div class="col-md-6">
+    <h3>Top influencers</h3>
+    <ul>
+      {% for inf in top_influencers %}
+      <li>{{ inf.name }} ({{ inf.overall_score }})</li>
+      {% else %}
+      <li>No influencers found</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}
