@@ -1,58 +1,10 @@
-"""Compatibility shim: re-export database utilities from `database.db`."""
+"""Thin compatibility shim: re-export database utilities from `database.db`.
+
+The canonical DB implementation is in `database/db.py`. Import that
+module directly where possible; this shim exists for convenience.
+"""
 
 from database.db import *  # noqa: F401,F403
-
-# NOTE: The real implementation lives in `database.db`.
-
-class Influencer(Base):
-    __tablename__ = 'influencers'
-    
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(255), nullable=False, index=True)
-    bio = Column(Text, nullable=True)
-    profile_image = Column(String(500), nullable=True)
-    
-    instagram_url = Column(String(500), nullable=True)
-    youtube_url = Column(String(500), nullable=True)
-    tiktok_url = Column(String(500), nullable=True)
-    website_url = Column(String(500), nullable=True)
-    
-    overall_score = Column(Float, default=0.0)
-    positive_ratio = Column(Float, default=0.0)
-    negative_ratio = Column(Float, default=0.0)
-    neutral_ratio = Column(Float, default=0.0)
-    total_comments = Column(Integer, default=0)
-    rank = Column(Integer, nullable=True)
-    
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    is_active = Column(Boolean, default=True)
-    
-    storefronts = relationship("Storefront", back_populates="influencer", cascade="all, delete-orphan")
-    comments = relationship("Comment", back_populates="influencer", cascade="all, delete-orphan")
-    
-    def __repr__(self):
-        return f"<Influencer(id={self.id}, name='{self.name}', score={self.overall_score:.2f})>"
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            'id': self.id,
-            'name': self.name,
-            'bio': self.bio,
-            'profile_image': self.profile_image,
-            'instagram_url': self.instagram_url,
-            'youtube_url': self.youtube_url,
-            'tiktok_url': self.tiktok_url,
-            'website_url': self.website_url,
-            'overall_score': round(self.overall_score, 2),
-            'positive_ratio': round(self.positive_ratio, 2),
-            'negative_ratio': round(self.negative_ratio, 2),
-            'neutral_ratio': round(self.neutral_ratio, 2),
-            'total_comments': self.total_comments,
-            'rank': self.rank,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
-        }
 
 
 class Storefront(Base):

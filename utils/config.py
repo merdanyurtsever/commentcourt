@@ -131,23 +131,35 @@ class ConfigManager:
             config_path = DEFAULT_CONFIG_PATH
         
         config_path = Path(config_path)
-        
         if config_path.exists():
             try:
                 with open(config_path, 'r', encoding='utf-8') as f:
                     yaml_content = yaml.safe_load(f) or {}
-                
-                self._apply_yaml_config(yaml_content)
+                # apply values where keys match dataclass attribute names
+                self._deep_update(self._config, yaml_content)
                 logger.info(f"Loaded configuration from {config_path}")
-                
             except Exception as e:
                 logger.warning(f"Could not load config from {config_path}: {e}")
         else:
             logger.info(f"Config file not found at {config_path}, using defaults")
-        
-        # Apply environment overrides
-        self._apply_env_overrides()
-        
+
+        # Environment overrides (simple and explicit)
+        if os.getenv('COMMENTCOURT_DB_PATH'):
+            self._config.database.path = os.getenv('COMMENTCOURT_DB_PATH')
+        if os.getenv('COMMENTCOURT_HOST'):
+            self._config.gui.host = os.getenv('COMMENTCOURT_HOST')
+        if os.getenv('COMMENTCOURT_PORT'):
+            try:
+                self._config.gui.port = int(os.getenv('COMMENTCOURT_PORT'))
+            except Exception:
+                pass
+        if os.getenv('COMMENTCOURT_DEBUG'):
+            self._config.gui.debug = os.getenv('COMMENTCOURT_DEBUG').lower() == 'true'
+        if os.getenv('COMMENTCOURT_SECRET_KEY'):
+            self._config.gui.secret_key = os.getenv('COMMENTCOURT_SECRET_KEY')
+        if os.getenv('COMMENTCOURT_LOG_LEVEL'):
+            self._config.logging.level = os.getenv('COMMENTCOURT_LOG_LEVEL')
+
         return self._config
     
     def _apply_yaml_config(self, yaml_data: Dict[str, Any]) -> None:
@@ -203,27 +215,21 @@ class ConfigManager:
     
     def _apply_env_overrides(self) -> None:
         """Apply environment variable overrides."""
-        # Database
-        if os.getenv('COMMENTCOURT_DB_PATH'):
-            self._config.database.path = os.getenv('COMMENTCOURT_DB_PATH')
-        
-        # GUI
-        if os.getenv('COMMENTCOURT_HOST'):
-            self._config.gui.host = os.getenv('COMMENTCOURT_HOST')
-        if os.getenv('COMMENTCOURT_PORT'):
-            self._config.gui.port = int(os.getenv('COMMENTCOURT_PORT'))
-        if os.getenv('COMMENTCOURT_DEBUG'):
-            self._config.gui.debug = os.getenv('COMMENTCOURT_DEBUG').lower() == 'true'
-        if os.getenv('COMMENTCOURT_SECRET_KEY'):
-            self._config.gui.secret_key = os.getenv('COMMENTCOURT_SECRET_KEY')
-        
-        # Logging
-        if os.getenv('COMMENTCOURT_LOG_LEVEL'):
-            self._config.logging.level = os.getenv('COMMENTCOURT_LOG_LEVEL')
-        
-        # Environment
-        if os.getenv('COMMENTCOURT_ENV'):
-            self._config.environment = os.getenv('COMMENTCOURT_ENV')
+        # (Kept for backward compatibility: no-op; env overrides applied in load())
+        return
+
+    def _deep_update(self, target, values: Dict[str, Any]) -> None:
+        """Recursively update dataclass-like objects from a mapping."""
+        for key, val in values.items():
+            if hasattr(target, key):
+                attr = getattr(target, key)
+                if hasattr(attr, '__dict__') and isinstance(val, dict):
+                    self._deep_update(attr, val)
+                else:
+                    try:
+                        setattr(target, key, val)
+                    except Exception:
+                        logger.debug(f"Skipping invalid config key: {key}")
     
     @property
     def config(self) -> AppConfig:
@@ -268,24 +274,6 @@ class ConfigManager:
         else:
             logger.warning(f"Invalid config key: {key}")
     
-    def save(self, config_path: Optional[Path] = None) -> None:
-        """
-        Save current configuration to YAML file.
-        """
-        if config_path is None:
-            config_path = DEFAULT_CONFIG_PATH
-        
-        config_path = Path(config_path)
-        
-        with open(config_path, 'w', encoding='utf-8') as f:
-            yaml.dump(self._config.to_dict(), f, default_flow_style=False, allow_unicode=True)
-        
-        logger.info(f"Saved configuration to {config_path}")
-    
-    def reload(self, config_path: Optional[Path] = None) -> AppConfig:
-        """Reload configuration from file."""
-        self._config = AppConfig()
-        return self.load(config_path)
 
 
 # Convenience functions
