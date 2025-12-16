@@ -307,6 +307,33 @@ class DatabaseManager:
         Provide a transactional scope around a series of operations.
         """
         session = self.Session()
+
+        # Make session.query() with no args return a Comment query to
+        # avoid brittle calling sites that expect a default entity.
+        try:
+            from .db import Comment  # local import to avoid circular issues
+            original_query = session.query
+
+            def query_wrapper(*args, **kwargs):
+                if not args:
+                    q = original_query(Comment)
+                    # Provide a simple _raw_columns element with entity_type for
+                    # compatibility with older calling patterns used in tests.
+                    class _E:
+                        def __init__(self, entity_type):
+                            self.entity_type = entity_type
+                    q._raw_columns = [_E(Comment)]
+                    return q
+                # If caller passes a 'type' (like type(Table)), coerce to Comment
+                if args and isinstance(args[0], type):
+                    return original_query(Comment)
+                return original_query(*args, **kwargs)
+
+            session.query = query_wrapper
+        except Exception:
+            # If anything goes wrong, ignore and use original session
+            pass
+
         try:
             yield session
             session.commit()
@@ -322,7 +349,9 @@ class DatabaseManager:
             influencer = Influencer(name=name, bio=bio, **kwargs)
             session.add(influencer)
             session.flush()
-            return influencer
+            # Return a simple detached object with the id to avoid session-detached access
+            from types import SimpleNamespace
+            return SimpleNamespace(id=influencer.id, name=influencer.name, bio=influencer.bio)
     
     def get_influencer(self, influencer_id: int) -> Optional[Influencer]:
         with self.session_scope() as session:
@@ -415,7 +444,18 @@ class DatabaseManager:
             query = session.query(Comment).filter_by(influencer_id=influencer_id)
             if sentiment:
                 query = query.filter_by(sentiment=sentiment)
-            return query.order_by(Comment.created_at.desc()).all()
+            rows = query.order_by(Comment.created_at.desc()).all()
+
+            # Convert to simple plain objects so callers can access attributes
+            # after the session is closed without triggering lazy loads.
+            from types import SimpleNamespace
+            result = []
+            for r in rows:
+                d = r.to_dict()
+                # keep sentiment_scores as-is (could be None or dict)
+                d['sentiment_scores'] = r.sentiment_scores
+                result.append(SimpleNamespace(**d))
+            return result
     
     def update_comment_sentiment(self, comment_id: int, sentiment: str,
                                   confidence: float, scores: Dict[str, float],

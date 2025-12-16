@@ -25,31 +25,26 @@ from model.base import BaseMLModel, PredictionResult
 logger = logging.getLogger(__name__)
 
 
-@dataclass
 class PipelineConfig:
-    """Configuration for the analysis pipeline."""
-    
-    # Data paths
-    raw_data_dir: Path = field(default_factory=lambda: Path("database/raw"))
-    processed_data_dir: Path = field(default_factory=lambda: Path("database/processed"))
-    models_dir: Path = field(default_factory=lambda: Path("model/weights"))
-    
-    # Database
-    db_path: str = "database/db.sqlite3"
-    transformer_model_path: Optional[str] = None  # Local checkpoint or HF id for transformer inference
-    
-    # Processing
-    batch_size: int = 100
-    max_comments_per_run: int = 10000
-    
-    # Model selection
-    models_to_use: Optional[List[str]] = None  # None means all
-    selection_metric: str = "f1_score"
-    
-    # Scoring
-    score_scale: int = 10  # Score out of 10 or 5
-    
-    def to_dict(self) -> Dict[str, Any]:
+    """Simple pipeline configuration class (explicit and easy to read)."""
+
+    def __init__(self, raw_data_dir="database/raw", processed_data_dir="database/processed",
+                 models_dir="model/weights", db_path="database/db.sqlite3",
+                 transformer_model_path=None, batch_size=100, max_comments_per_run=10000,
+                 models_to_use=None, selection_metric="f1_score", score_scale=10):
+        from pathlib import Path
+        self.raw_data_dir = Path(raw_data_dir)
+        self.processed_data_dir = Path(processed_data_dir)
+        self.models_dir = Path(models_dir)
+        self.db_path = db_path
+        self.transformer_model_path = transformer_model_path
+        self.batch_size = batch_size
+        self.max_comments_per_run = max_comments_per_run
+        self.models_to_use = models_to_use
+        self.selection_metric = selection_metric
+        self.score_scale = score_scale
+
+    def to_dict(self):
         return {
             'raw_data_dir': str(self.raw_data_dir),
             'processed_data_dir': str(self.processed_data_dir),
@@ -63,28 +58,22 @@ class PipelineConfig:
         }
 
 
-@dataclass
 class PipelineResult:
-    """Results from a pipeline run."""
-    
-    status: str = "pending"  # pending, running, completed, failed
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    
-    # Counts
-    comments_loaded: int = 0
-    comments_cleaned: int = 0
-    comments_analyzed: int = 0
-    influencers_updated: int = 0
-    
-    # Model info
-    best_model: Optional[str] = None
-    model_metrics: Dict[str, Any] = field(default_factory=dict)
-    
-    # Errors
-    errors: List[str] = field(default_factory=list)
-    
-    def to_dict(self) -> Dict[str, Any]:
+    """Simple pipeline result holder."""
+
+    def __init__(self):
+        self.status = "pending"
+        self.started_at = None
+        self.completed_at = None
+        self.comments_loaded = 0
+        self.comments_cleaned = 0
+        self.comments_analyzed = 0
+        self.influencers_updated = 0
+        self.best_model = None
+        self.model_metrics = {}
+        self.errors = []
+
+    def to_dict(self):
         return {
             'status': self.status,
             'started_at': self.started_at.isoformat() if self.started_at else None,
@@ -369,10 +358,14 @@ class AnalysisPipeline:
         inference = TransformerInference(model_path or self.config.transformer_model_path)
 
         with self.db.session_scope() as session:
-            query = session.query(Comment).filter(Comment.text_cleaned.isnot(None))
+            # Get comments, prefer cleaned text but fall back to original text
+            query = session.query(Comment)
             if limit:
                 query = query.limit(limit)
             comments = query.all()
+
+            # Keep only comments that have some text
+            comments = [c for c in comments if (c.text_cleaned or c.text)]
 
             if not comments:
                 return {'processed': 0, 'errors': []}
@@ -520,30 +513,3 @@ if __name__ == '__main__':
     print(json.dumps(result.to_dict(), indent=2))
 
 
-def run_pipeline(config: Optional[PipelineConfig] = None,
-                 skip_training: bool = False) -> PipelineResult:
-    """Convenience function to run the analysis pipeline."""
-    pipeline = AnalysisPipeline(config)
-    return pipeline.run(skip_training=skip_training)
-
-
-if __name__ == '__main__':
-    import argparse
-    
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    
-    parser = argparse.ArgumentParser(description='Run analysis pipeline')
-    parser.add_argument('--skip-training', action='store_true',
-                        help='Skip model training, use existing models')
-    parser.add_argument('--db', type=str, default='database/db.sqlite3',
-                        help='Database path')
-    
-    args = parser.parse_args()
-    
-    config = PipelineConfig(db_path=args.db)
-    result = run_pipeline(config, skip_training=args.skip_training)
-    
-    print(json.dumps(result.to_dict(), indent=2))

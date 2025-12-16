@@ -1,3 +1,116 @@
+"""Very simple scoring utilities (amateur / explicit style).
+
+This file intentionally uses plain, easy-to-read code. No dataclasses,
+no fancy math libraries. Everything is explicit so a beginner can follow.
+"""
+
+from typing import List, Dict
+
+
+def compute_trust_score(sentiment: float,
+                        rating_norm: float,
+                        has_image: bool,
+                        like_norm: float,
+                        comment_length_norm: float) -> float:
+    """Compute a simple trust score for a comment.
+
+    Formula is explicit and broken into small named steps so it's
+    easy to read and test.
+
+    Returns the score rounded to 4 decimal places.
+    """
+
+    # image score is 1.0 when there is an image, otherwise 0.0
+    if has_image:
+        image_score = 1.0
+    else:
+        image_score = 0.0
+
+    # similarity between sentiment and rating (uyum)
+    uyum = 1.0 - abs(sentiment - rating_norm)
+
+    # apply weighted sum
+    trust = (
+        0.40 * sentiment +
+        0.35 * rating_norm +
+        0.05 * image_score +
+        0.05 * like_norm +
+        0.10 * uyum +
+        0.05 * comment_length_norm
+    )
+
+    # be explicit about conversion and rounding
+    trust_val = float(trust)
+    trust_val = round(trust_val, 4)
+
+    return trust_val
+
+
+class InfluencerScorer:
+    """Minimal influencer scorer.
+
+    The implementation is simple: count positive/negative/neutral and
+    produce a final score on a fixed scale. All steps are explicit.
+    """
+
+    def __init__(self, scale: int = 10):
+        self.scale = scale
+
+    def calculate_score(self, influencer_id: int, influencer_name: str, comments: List[Dict]) -> Dict:
+        """Return a dict with simple metrics and a final_score.
+
+        comments should be a list of dicts with key 'sentiment' set to
+        'positive', 'negative', or 'neutral'. Confidence values are
+        ignored in this simplified scorer.
+        """
+
+        total = 0
+        positive = 0
+        negative = 0
+        neutral = 0
+
+        for c in comments:
+            total += 1
+            s = c.get('sentiment')
+            if s == 'positive':
+                positive += 1
+            elif s == 'negative':
+                negative += 1
+            else:
+                neutral += 1
+
+        if total == 0:
+            return {
+                'influencer_id': influencer_id,
+                'influencer_name': influencer_name,
+                'total_comments': 0,
+                'final_score': 0.0
+            }
+
+        # simple weighted raw score
+        raw = (positive - 0.5 * negative) / total
+
+        # map raw from [-0.5, 1] to [0, 1]
+        raw_min = -0.5
+        raw_max = 1.0
+        normalized = (raw - raw_min) / (raw_max - raw_min)
+
+        if normalized < 0.0:
+            normalized = 0.0
+        if normalized > 1.0:
+            normalized = 1.0
+
+        final_score = round(normalized * self.scale, 2)
+
+        return {
+            'influencer_id': influencer_id,
+            'influencer_name': influencer_name,
+            'total_comments': total,
+            'positive': positive,
+            'negative': negative,
+            'neutral': neutral,
+            'final_score': final_score
+        }
 """Simple influencer scoring utilities.
 
 This module provides a compact, easy-to-read scoring function used by
