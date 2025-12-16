@@ -1,4 +1,4 @@
-"""Backend package (moved from program/core)."""
+"""Backend package."""
 
 __all__ = ["pipeline", "cleaner", "scorer"]
 
