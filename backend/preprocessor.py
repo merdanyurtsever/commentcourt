@@ -1,28 +1,27 @@
-"""Preprocessor wrapper to centralize cleaning and normalization.
+"""Very small, explicit preprocessor wrapper.
 
-This module provides `Preprocessor` that combines the existing
-`TextCleaner` with a `Normalizer` instance to produce final
-preprocessed text for models.
+The goal is to make the flow clear: clean then normalize. No type hints
+and simple loops/steps so a beginner can read it easily.
 """
-from typing import List, Optional
+
 from backend.cleaner import TextCleaner, CleanerConfig
 from backend.normalizer import Normalizer
 
 
 class Preprocessor:
-    """High-level preprocessor used by model training code."""
-
-    def __init__(self, cleaner_config: Optional[dict] = None,
-                 normalizer: Optional[Normalizer] = None):
+    def __init__(self, cleaner_config=None, normalizer=None):
         self.cleaner = TextCleaner(CleanerConfig(**(cleaner_config or {})))
         self.normalizer = normalizer or Normalizer()
 
-    def preprocess(self, text: str) -> str:
-        """Clean then normalize a single text string."""
+    def preprocess(self, text):
+        # Clean the text first
         cleaned = self.cleaner.clean(text)
+        # Then normalize the cleaned text
         return self.normalizer.normalize(cleaned)
 
-    def preprocess_batch(self, texts: List[str]) -> List[str]:
-        """Process multiple texts."""
+    def preprocess_batch(self, texts):
         cleaned = self.cleaner.clean_batch(texts)
-        return [self.normalizer.normalize(t) for t in cleaned]
+        out = []
+        for t in cleaned:
+            out.append(self.normalizer.normalize(t))
+        return out
