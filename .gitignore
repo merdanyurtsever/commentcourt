@@ -1,1 +1,4 @@
 .venv
+backend/__pycache__/cleaner.cpython-314.pyc
+model/__pycache__/
+
