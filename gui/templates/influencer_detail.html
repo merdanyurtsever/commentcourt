@@ -1,13 +1,226 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+
+{% block title %}{{ influencer.name }} - {{ app_name }}{% endblock %}
+
 {% block content %}
-<h1>{{ influencer.name }}</h1>
-<p>Overall score: {{ influencer.overall_score }}</p>
-<h3>Recent comments</h3>
-<ul>
-  {% for c in comments %}
-  <li>{{ c.text }} — {{ c.sentiment }}</li>
-  {% else %}
-  <li>No recent comments</li>
-  {% endfor %}
-</ul>
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('influencers_list') }}">Influencers</a></li>
+        <li class="breadcrumb-item active">{{ influencer.name }}</li>
+    </ol>
+</nav>
+
+<!-- Profile Header -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <div class="d-flex align-items-center">
+                    <!-- Rank -->
+                    {% if influencer.rank %}
+                    <div class="rank-badge rank-{% if influencer.rank == 1 %}1{% elif influencer.rank == 2 %}2{% elif influencer.rank == 3 %}3{% else %}other{% endif %} me-3" style="width: 60px; height: 60px; font-size: 1.5rem;">
+                        {{ influencer.rank }}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Avatar -->
+                    <div class="influencer-avatar me-4" style="width: 80px; height: 80px; font-size: 2rem;">
+                        {% if influencer.profile_image %}
+                        <img src="{{ influencer.profile_image }}" alt="{{ influencer.name }}" class="rounded-circle" style="width: 100%; height: 100%; object-fit: cover;">
+                        {% else %}
+                        {{ influencer.name[0]|upper }}
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Info -->
+                    <div>
+                        <h2 class="mb-1">{{ influencer.name }}</h2>
+                        {% if influencer.bio %}
+                        <p class="text-muted mb-2">{{ influencer.bio }}</p>
+                        {% endif %}
+                        
+                        <!-- Social Links -->
+                        <div>
+                            {% if influencer.instagram_url %}
+                            <a href="{{ influencer.instagram_url }}" target="_blank" class="btn btn-sm btn-outline-secondary me-1">
+                                <i class="bi bi-instagram"></i> Instagram
+                            </a>
+                            {% endif %}
+                            {% if influencer.youtube_url %}
+                            <a href="{{ influencer.youtube_url }}" target="_blank" class="btn btn-sm btn-outline-secondary me-1">
+                                <i class="bi bi-youtube"></i> YouTube
+                            </a>
+                            {% endif %}
+                            {% if influencer.tiktok_url %}
+                            <a href="{{ influencer.tiktok_url }}" target="_blank" class="btn btn-sm btn-outline-secondary me-1">
+                                <i class="bi bi-tiktok"></i> TikTok
+                            </a>
+                            {% endif %}
+                            {% if influencer.website_url %}
+                            <a href="{{ influencer.website_url }}" target="_blank" class="btn btn-sm btn-outline-secondary me-1">
+                                <i class="bi bi-globe"></i> Website
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4 text-center text-md-end mt-4 mt-md-0">
+                <div class="score-badge {% if influencer.overall_score >= 8 %}score-excellent{% elif influencer.overall_score >= 6 %}score-good{% elif influencer.overall_score >= 4 %}score-average{% elif influencer.overall_score >= 2 %}score-poor{% else %}score-bad{% endif %}" style="font-size: 2.5rem; padding: 1rem 2rem;">
+                    {{ influencer.overall_score|format_score }}<small>/{{ score_scale }}</small>
+                </div>
+                <div class="text-muted mt-2">Overall Score</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Row -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-value">{{ influencer.total_comments }}</div>
+            <div class="stat-label">Total Comments</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-value text-success">{{ (influencer.positive_ratio * 100)|round(1) }}%</div>
+            <div class="stat-label">Positive</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-value text-danger">{{ (influencer.negative_ratio * 100)|round(1) }}%</div>
+            <div class="stat-label">Negative</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-value text-secondary">{{ (influencer.neutral_ratio * 100)|round(1) }}%</div>
+            <div class="stat-label">Neutral</div>
+        </div>
+    </div>
+</div>
+
+<!-- Sentiment Breakdown -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card p-4">
+            <h5 class="mb-3"><i class="bi bi-pie-chart me-2"></i>Sentiment Breakdown</h5>
+            
+            <div class="mb-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="sentiment-positive"><i class="bi bi-emoji-smile me-1"></i>Positive</span>
+                    <span>{{ sentiment_counts.positive }}</span>
+                </div>
+                <div class="progress" style="height: 20px;">
+                    {% set total = sentiment_counts.positive + sentiment_counts.negative + sentiment_counts.neutral %}
+                    <div class="progress-bar bg-success" style="width: {{ sentiment_counts.positive / total * 100 if total > 0 else 0 }}%">
+                        {{ (sentiment_counts.positive / total * 100)|round(1) if total > 0 else 0 }}%
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="sentiment-negative"><i class="bi bi-emoji-frown me-1"></i>Negative</span>
+                    <span>{{ sentiment_counts.negative }}</span>
+                </div>
+                <div class="progress" style="height: 20px;">
+                    <div class="progress-bar bg-danger" style="width: {{ sentiment_counts.negative / total * 100 if total > 0 else 0 }}%">
+                        {{ (sentiment_counts.negative / total * 100)|round(1) if total > 0 else 0 }}%
+                    </div>
+                </div>
+            </div>
+            
+            <div>
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="sentiment-neutral"><i class="bi bi-emoji-neutral me-1"></i>Neutral</span>
+                    <span>{{ sentiment_counts.neutral }}</span>
+                </div>
+                <div class="progress" style="height: 20px;">
+                    <div class="progress-bar bg-secondary" style="width: {{ sentiment_counts.neutral / total * 100 if total > 0 else 0 }}%">
+                        {{ (sentiment_counts.neutral / total * 100)|round(1) if total > 0 else 0 }}%
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card p-4">
+            <h5 class="mb-3"><i class="bi bi-info-circle me-2"></i>Profile Information</h5>
+            <table class="table table-borderless">
+                <tr>
+                    <td class="text-muted">Rank</td>
+                    <td><strong>#{{ influencer.rank or 'Unranked' }}</strong></td>
+                </tr>
+                <tr>
+                    <td class="text-muted">Status</td>
+                    <td>
+                        {% if influencer.is_active %}
+                        <span class="badge bg-success">Active</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Inactive</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-muted">Added</td>
+                    <td>{{ influencer.created_at.strftime('%Y-%m-%d') if influencer.created_at else 'N/A' }}</td>
+                </tr>
+                <tr>
+                    <td class="text-muted">Last Updated</td>
+                    <td>{{ influencer.updated_at.strftime('%Y-%m-%d %H:%M') if influencer.updated_at else 'N/A' }}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Comments -->
+<div class="card">
+    <div class="card-header bg-white">
+        <h5 class="mb-0"><i class="bi bi-chat-dots me-2"></i>Recent Comments</h5>
+    </div>
+    <div class="card-body">
+        {% if comments %}
+            {% for comment in comments %}
+            <div class="comment-card comment-{{ comment.sentiment.value if comment.sentiment else 'neutral' }}">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        {% if comment.sentiment %}
+                        <span class="badge bg-{{ comment.sentiment.value|sentiment_color }}">
+                            {{ comment.sentiment.value|capitalize }}
+                        </span>
+                        {% endif %}
+                        {% if comment.confidence %}
+                        <small class="text-muted ms-2">{{ (comment.confidence * 100)|round(0) }}% confidence</small>
+                        {% endif %}
+                    </div>
+                    <small class="text-muted">
+                        {% if comment.platform %}
+                        <span class="badge bg-light text-dark me-1">{{ comment.platform.value }}</span>
+                        {% endif %}
+                        {{ comment.created_at.strftime('%Y-%m-%d') if comment.created_at else '' }}
+                    </small>
+                </div>
+                <p class="mb-1">{{ comment.text }}</p>
+                {% if comment.product_name %}
+                <small class="text-muted"><i class="bi bi-box me-1"></i>{{ comment.product_name }}</small>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-center text-muted p-4">
+                <i class="bi bi-chat fs-1 d-block mb-2"></i>
+                <p>No comments yet for this influencer.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
 {% endblock %}

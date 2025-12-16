@@ -1,27 +1,260 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="{{ current_language }}">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ app_name or 'CommentCourt' }}</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ app_name }}{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #6366f1;
+            --success-color: #22c55e;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+        }
+        
+        body {
+            background-color: #f8fafc;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-color), #8b5cf6);
+        }
+        
+        .navbar-brand {
+            font-weight: bold;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .score-badge {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+        }
+        
+        .score-excellent { background: var(--success-color); }
+        .score-good { background: #84cc16; }
+        .score-average { background: var(--warning-color); }
+        .score-poor { background: #f97316; }
+        .score-bad { background: var(--danger-color); }
+        
+        .rank-badge {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .rank-1 { background: gold; color: #333; }
+        .rank-2 { background: silver; color: #333; }
+        .rank-3 { background: #cd7f32; }
+        .rank-other { background: #6b7280; }
+        
+        .sentiment-positive { color: var(--success-color); }
+        .sentiment-negative { color: var(--danger-color); }
+        .sentiment-neutral { color: #6b7280; }
+        
+        .stat-card {
+            text-align: center;
+            padding: 1.5rem;
+        }
+        
+        .stat-card .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .stat-card .stat-label {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+        
+        .progress {
+            height: 8px;
+            border-radius: 4px;
+        }
+        
+        .influencer-card {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .influencer-card:last-child {
+            border-bottom: none;
+        }
+        
+        .influencer-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color), #8b5cf6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .comment-card {
+            padding: 1rem;
+            border-left: 4px solid;
+            margin-bottom: 1rem;
+            background: white;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .comment-positive { border-color: var(--success-color); }
+        .comment-negative { border-color: var(--danger-color); }
+        .comment-neutral { border-color: #6b7280; }
+        
+        .footer {
+            background: #1f2937;
+            color: white;
+            padding: 2rem 0;
+            margin-top: 3rem;
+        }
+        
+        .btn-primary {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .btn-primary:hover {
+            background: #4f46e5;
+            border-color: #4f46e5;
+        }
+        
+        .trend-improving { color: var(--success-color); }
+        .trend-declining { color: var(--danger-color); }
+        .trend-stable { color: #6b7280; }
+        
+        .language-switcher .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .language-switcher .dropdown-item.active {
+            background-color: var(--primary-color);
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
-  <div class="container-fluid">
-    <a class="navbar-brand" href="/">{{ app_name or 'CommentCourt' }}</a>
-  </div>
-</nav>
-<div class="container">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, msg in messages %}
-        <div class="alert alert-{{ 'danger' if category == 'error' else category }}">{{ msg }}</div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
-
-  {% block content %}{% endblock %}
-</div>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">
+                <i class="bi bi-stars me-2"></i>{{ app_name }}
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">
+                            <i class="bi bi-speedometer2 me-1"></i>{{ t('nav.dashboard') }}
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'influencers_list' %}active{% endif %}" href="{{ url_for('influencers_list') }}">
+                            <i class="bi bi-people me-1"></i>{{ t('nav.influencers') }}
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'comments_list' %}active{% endif %}" href="{{ url_for('comments_list') }}">
+                            <i class="bi bi-chat-dots me-1"></i>{{ t('nav.comments') }}
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'analysis_page' %}active{% endif %}" href="{{ url_for('analysis_page') }}">
+                            <i class="bi bi-cpu me-1"></i>{{ t('nav.analysis') }}
+                        </a>
+                    </li>
+                </ul>
+                
+                <!-- Language Switcher -->
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown language-switcher">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-globe me-1"></i>
+                            {{ languages[current_language].flag }} {{ languages[current_language].native }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            {% for code, lang in languages.items() %}
+                            <li>
+                                <a class="dropdown-item {% if code == current_language %}active{% endif %}" 
+                                   href="{{ url_for('change_language', lang_code=code) }}">
+                                    <span>{{ lang.flag }}</span>
+                                    <span>{{ lang.native }}</span>
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Flash Messages -->
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+    
+    <!-- Main Content -->
+    <main class="container mb-5">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container text-center">
+            <p class="mb-0">{{ app_name }} &copy; {{ current_year }}</p>
+            <small class="text-muted">{{ t('footer.copyright') }}</small>
+        </div>
+    </footer>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

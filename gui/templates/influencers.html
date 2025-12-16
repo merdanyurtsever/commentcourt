@@ -1,11 +1,144 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+
+{% block title %}{{ t('influencers.title') }} - {{ app_name }}{% endblock %}
+
 {% block content %}
-<h1>Influencers</h1>
-<ul>
-  {% for inf in influencers %}
-  <li><a href="{{ url_for('influencer_detail', influencer_id=inf.id) }}">{{ inf.name }}</a> — Score: {{ inf.overall_score }}</li>
-  {% else %}
-  <li>No influencers</li>
-  {% endfor %}
-</ul>
+<div class="row mb-4">
+    <div class="col">
+        <h1><i class="bi bi-people me-2"></i>{{ t('influencers.title') }}</h1>
+        <p class="text-muted">{{ t('influencers.subtitle') }}</p>
+    </div>
+    <div class="col-auto">
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="bi bi-sort-down me-1"></i>{{ t('influencers.sort_by') }}: {{ sort_by|capitalize }}
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="?sort=rank">{{ t('influencers.rank') }}</a></li>
+                <li><a class="dropdown-item" href="?sort=score">{{ t('influencers.score') }}</a></li>
+                <li><a class="dropdown-item" href="?sort=name">{{ t('influencers.sort_name') }}</a></li>
+                <li><a class="dropdown-item" href="?sort=comments">{{ t('influencers.comments') }}</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Influencers Grid -->
+<div class="row">
+    {% for influencer in influencers %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <!-- Rank Badge -->
+                    <div class="rank-badge rank-{% if influencer.rank == 1 %}1{% elif influencer.rank == 2 %}2{% elif influencer.rank == 3 %}3{% else %}other{% endif %} me-3">
+                        {{ influencer.rank or '-' }}
+                    </div>
+                    
+                    <!-- Avatar -->
+                    <div class="influencer-avatar me-3">
+                        {{ influencer.name[0]|upper }}
+                    </div>
+                    
+                    <!-- Name & Score -->
+                    <div>
+                        <h5 class="mb-0">{{ influencer.name }}</h5>
+                        <div class="score-badge score-sm {% if influencer.overall_score >= 8 %}score-excellent{% elif influencer.overall_score >= 6 %}score-good{% elif influencer.overall_score >= 4 %}score-average{% elif influencer.overall_score >= 2 %}score-poor{% else %}score-bad{% endif %}" style="font-size: 1rem; padding: 0.25rem 0.5rem;">
+                            {{ influencer.overall_score|format_score }}/{{ score_scale }}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Bio -->
+                {% if influencer.bio %}
+                <p class="text-muted small mb-3">{{ influencer.bio[:100] }}{% if influencer.bio|length > 100 %}...{% endif %}</p>
+                {% endif %}
+                
+                <!-- Stats -->
+                <div class="row text-center mb-3">
+                    <div class="col-4">
+                        <div class="fw-bold text-success">{{ (influencer.positive_ratio * 100)|round(0) }}%</div>
+                        <small class="text-muted">{{ t('sentiment.positive') }}</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="fw-bold text-danger">{{ (influencer.negative_ratio * 100)|round(0) }}%</div>
+                        <small class="text-muted">{{ t('sentiment.negative') }}</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="fw-bold text-secondary">{{ influencer.total_comments }}</div>
+                        <small class="text-muted">{{ t('influencers.comments') }}</small>
+                    </div>
+                </div>
+                
+                <!-- Sentiment Bar -->
+                <div class="progress mb-3" style="height: 6px;">
+                    <div class="progress-bar bg-success" role="progressbar" aria-valuenow="{{ influencer.positive_ratio * 100 }}" aria-valuemin="0" aria-valuemax="100" style="width: {{ influencer.positive_ratio * 100 }}%"></div>
+                    <div class="progress-bar bg-secondary" role="progressbar" aria-valuenow="{{ influencer.neutral_ratio * 100 }}" aria-valuemin="0" aria-valuemax="100" style="width: {{ influencer.neutral_ratio * 100 }}%"></div>
+                    <div class="progress-bar bg-danger" role="progressbar" aria-valuenow="{{ influencer.negative_ratio * 100 }}" aria-valuemin="0" aria-valuemax="100" style="width: {{ influencer.negative_ratio * 100 }}%"></div>
+                </div>
+                
+                <!-- Social Links -->
+                <div class="mb-3">
+                    {% if influencer.instagram_url %}
+                    <a href="{{ influencer.instagram_url }}" target="_blank" class="btn btn-sm btn-outline-secondary me-1">
+                        <i class="bi bi-instagram"></i>
+                    </a>
+                    {% endif %}
+                    {% if influencer.youtube_url %}
+                    <a href="{{ influencer.youtube_url }}" target="_blank" class="btn btn-sm btn-outline-secondary me-1">
+                        <i class="bi bi-youtube"></i>
+                    </a>
+                    {% endif %}
+                    {% if influencer.tiktok_url %}
+                    <a href="{{ influencer.tiktok_url }}" target="_blank" class="btn btn-sm btn-outline-secondary me-1">
+                        <i class="bi bi-tiktok"></i>
+                    </a>
+                    {% endif %}
+                </div>
+                
+                <!-- View Button -->
+                <a href="{{ url_for('influencer_detail', influencer_id=influencer.id) }}" class="btn btn-primary w-100">
+                    <i class="bi bi-eye me-1"></i>{{ t('influencers.view_details') }}
+                </a>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12">
+        <div class="card p-5 text-center">
+            <i class="bi bi-inbox fs-1 text-muted mb-3"></i>
+            <h5>{{ t('influencers.no_results') }}</h5>
+            <p class="text-muted">{{ t('analysis.no_data') }}</p>
+            <a href="{{ url_for('analysis_page') }}" class="btn btn-primary">
+                <i class="bi bi-play me-1"></i>{{ t('analysis.run_analysis') }}
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if total_pages > 1 %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        <li class="page-item {% if page == 1 %}disabled{% endif %}">
+            <a class="page-link" href="?page={{ page - 1 }}&sort={{ sort_by }}">{{ t('common.previous') }}</a>
+        </li>
+        
+        {% for p in range(1, total_pages + 1) %}
+            {% if p == page %}
+            <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+            {% elif p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+            <li class="page-item"><a class="page-link" href="?page={{ p }}&sort={{ sort_by }}">{{ p }}</a></li>
+            {% elif p == page - 3 or p == page + 3 %}
+            <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% endif %}
+        {% endfor %}
+        
+        <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+            <a class="page-link" href="?page={{ page + 1 }}&sort={{ sort_by }}">{{ t('common.next') }}</a>
+        </li>
+    </ul>
+</nav>
+{% endif %}
 {% endblock %}
