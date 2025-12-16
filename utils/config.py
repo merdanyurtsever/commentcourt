@@ -151,4 +151,3 @@ def set_config_value(key: str, value: Any) -> None:
             node[p] = {}
         node = node[p]
     node[parts[-1]] = value
-            except Exception:

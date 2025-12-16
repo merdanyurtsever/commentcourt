@@ -324,9 +324,12 @@ class DatabaseManager:
                             self.entity_type = entity_type
                     q._raw_columns = [_E(Comment)]
                     return q
-                # If caller passes a 'type' (like type(Table)), coerce to Comment
-                if args and isinstance(args[0], type):
+                # If caller passes a non-ORM type (e.g., Table class), return a Comment query
+                # Otherwise pass through ORM classes like Influencer normally.
+                first = args[0]
+                if isinstance(first, type) and getattr(first, '__tablename__', None) is None:
                     return original_query(Comment)
+
                 return original_query(*args, **kwargs)
 
             session.query = query_wrapper

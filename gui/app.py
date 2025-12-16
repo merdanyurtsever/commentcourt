@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
+from types import SimpleNamespace
 
 from flask import (
     Flask, render_template, request, jsonify, redirect, url_for, flash, session
@@ -29,7 +30,16 @@ app = Flask(__name__,
             static_folder='static')
 
 # Load configuration
-config = load_config()
+_raw_config = load_config()
+
+def _dict_to_namespace(obj):
+    if isinstance(obj, dict):
+        return SimpleNamespace(**{k: _dict_to_namespace(v) for k, v in obj.items()})
+    if isinstance(obj, list):
+        return [_dict_to_namespace(v) for v in obj]
+    return obj
+
+config = _dict_to_namespace(_raw_config)
 app.secret_key = config.gui.secret_key
 
 
@@ -450,7 +460,8 @@ def create_app(config_path: Optional[str] = None) -> Flask:
     global config
     
     if config_path:
-        config = load_config(Path(config_path))
+        _raw_config = load_config(Path(config_path))
+        config = _dict_to_namespace(_raw_config)
         app.secret_key = config.gui.secret_key
     
     # Initialize database
