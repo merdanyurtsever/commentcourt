@@ -1,7 +1,201 @@
+"""
+Analysis Pipeline for CommentCourt (moved to `backend`).
 
-# REMOVED: program.core.pipeline (cleared)
+This is an edited copy of `program/core/pipeline.py` with imports
+updated to the new package layout.
+"""
 
-# Use `backend.pipeline` for the pipeline implementation.
+import logging
+from pathlib import Path
+from typing import List, Dict, Any, Optional, Callable
+from datetime import datetime
+from dataclasses import dataclass, field
+import json
+
+from database.db import (
+    DatabaseManager, get_db, init_db,
+    Influencer, Comment, SentimentLabel, Platform
+)
+from backend.cleaner import TextCleaner
+from model.registry import ModelRegistry, auto_discover_models
+from model.base import BaseMLModel, PredictionResult
+
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PipelineConfig:
+    """Configuration for the analysis pipeline."""
+    
+    # Data paths
+    raw_data_dir: Path = field(default_factory=lambda: Path("database/raw"))
+    processed_data_dir: Path = field(default_factory=lambda: Path("database/processed"))
+    models_dir: Path = field(default_factory=lambda: Path("model/weights"))
+    
+    # Database
+    db_path: str = "database/db.sqlite3"
+    
+    # Processing
+    batch_size: int = 100
+    max_comments_per_run: int = 10000
+    
+    # Model selection
+    models_to_use: Optional[List[str]] = None  # None means all
+    selection_metric: str = "f1_score"
+    
+    # Scoring
+    score_scale: int = 10  # Score out of 10 or 5
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'raw_data_dir': str(self.raw_data_dir),
+            'processed_data_dir': str(self.processed_data_dir),
+            'models_dir': str(self.models_dir),
+            'db_path': self.db_path,
+            'batch_size': self.batch_size,
+            'max_comments_per_run': self.max_comments_per_run,
+            'models_to_use': self.models_to_use,
+            'selection_metric': self.selection_metric,
+            'score_scale': self.score_scale
+        }
+
+
+@dataclass
+class PipelineResult:
+    """Results from a pipeline run."""
+    
+    status: str = "pending"  # pending, running, completed, failed
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    
+    # Counts
+    comments_loaded: int = 0
+    comments_cleaned: int = 0
+    comments_analyzed: int = 0
+    influencers_updated: int = 0
+    
+    # Model info
+    best_model: Optional[str] = None
+    model_metrics: Dict[str, Any] = field(default_factory=dict)
+    
+    # Errors
+    errors: List[str] = field(default_factory=list)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'status': self.status,
+            'started_at': self.started_at.isoformat() if self.started_at else None,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            'comments_loaded': self.comments_loaded,
+            'comments_cleaned': self.comments_cleaned,
+            'comments_analyzed': self.comments_analyzed,
+            'influencers_updated': self.influencers_updated,
+            'best_model': self.best_model,
+            'model_metrics': self.model_metrics,
+            'errors': self.errors
+        }
+
+
+class AnalysisPipeline:
+    """Main analysis pipeline for processing influencer comments."""
+    
+    def __init__(self, config: Optional[PipelineConfig] = None):
+        """Initialize the pipeline."""
+        self.config = config or PipelineConfig()
+        self.db = get_db(self.config.db_path)
+        self.cleaner = TextCleaner()
+        self.result = PipelineResult()
+        self._best_model: Optional[BaseMLModel] = None
+        
+        # Ensure directories exist
+        self.config.raw_data_dir.mkdir(parents=True, exist_ok=True)
+        self.config.processed_data_dir.mkdir(parents=True, exist_ok=True)
+        self.config.models_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Auto-discover models
+        auto_discover_models()
+    
+    def run(self, skip_training: bool = False) -> PipelineResult:
+        """
+        Execute the full analysis pipeline.
+        
+        Args:
+            skip_training: If True, use existing trained models
+            
+        Returns:
+            PipelineResult with execution details
+        """
+        self.result = PipelineResult()
+        self.result.started_at = datetime.now()
+        self.result.status = "running"
+        
+        try:
+            # Step 1: Initialize database
+            logger.info("Step 1: Initializing database")
+            self.db.create_tables()
+            
+            # Step 2: Clean comments (we rely on predefined DB instead of scrapers)
+            logger.info("Step 2: Cleaning comments")
+            self._clean_comments()
+            
+            # Step 4: Train/load models and analyze
+            logger.info("Step 4: Running sentiment analysis")
+            self._run_analysis(skip_training=skip_training)
+            
+            # Step 5: Update influencer scores
+            logger.info("Step 5: Updating influencer scores")
+            self._update_scores()
+            
+            # Step 6: Update rankings
+            logger.info("Step 6: Updating rankings")
+            self._update_rankings()
+            
+            self.result.status = "completed"
+            
+        except Exception as e:
+            logger.error(f"Pipeline error: {e}")
+            self.result.errors.append(str(e))
+            self.result.status = "failed"
+        
+        finally:
+            self.result.completed_at = datetime.now()
+        
+        # Log summary
+        self._log_summary()
+        
+        return self.result
+    
+    # NOTE: Scraper/import functionality removed. Use a predefined database.
+    
+    def _clean_comments(self) -> None:
+        """Clean and preprocess all unprocessed comments."""
+        with self.db.session_scope() as session:
+            # Get comments without cleaned text
+            comments = session.query(Comment)\
+                .filter(Comment.text_cleaned.is_(None))\
+                .limit(self.config.max_comments_per_run)\
+                .all()
+            
+            for comment in comments:
+                cleaned = self.cleaner.clean(comment.text)
+                comment.text_cleaned = cleaned
+                self.result.comments_cleaned += 1
+    
+    def _run_analysis(self, skip_training: bool = False) -> None:
+        """Run sentiment analysis using best available model."""
+        # Get available models
+        models = self._get_models()
+        
+        if not models:
+            raise RuntimeError("No models available for analysis")
+        
+        # Select best model
+        self._best_model = self._select_best_model(models, skip_training)
+        
+        if not self._best_model:
+            raise RuntimeError("Could not select best model")
+        
         self.result.best_model = self._best_model.name
         
         # Analyze unanalyzed comments
@@ -187,7 +381,7 @@
         
         Args:
             text: Text to analyze
-            
+        
         Returns:
             PredictionResult
         """
@@ -261,6 +455,35 @@ def run_pipeline(config: Optional[PipelineConfig] = None,
     Returns:
         Pipeline execution result
     """
+    pipeline = AnalysisPipeline(config)
+    return pipeline.run(skip_training=skip_training)
+
+
+if __name__ == '__main__':
+    import argparse
+    
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    parser = argparse.ArgumentParser(description='Run analysis pipeline')
+    parser.add_argument('--skip-training', action='store_true',
+                        help='Skip model training, use existing models')
+    parser.add_argument('--db', type=str, default='database/db.sqlite3',
+                        help='Database path')
+    
+    args = parser.parse_args()
+    
+    config = PipelineConfig(db_path=args.db)
+    result = run_pipeline(config, skip_training=args.skip_training)
+    
+    print(json.dumps(result.to_dict(), indent=2))
+
+
+def run_pipeline(config: Optional[PipelineConfig] = None,
+                 skip_training: bool = False) -> PipelineResult:
+    """Convenience function to run the analysis pipeline."""
     pipeline = AnalysisPipeline(config)
     return pipeline.run(skip_training=skip_training)
 

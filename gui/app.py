@@ -1,7 +1,36 @@
-# REMOVED: program.gui.app shim deleted (cleared)
+"""
+Flask Web Application for CommentCourt (moved to `gui`).
 
-# Import from `gui.app` directly.
+This is a lightly edited copy of `program/gui/app.py` with imports
+updated to the new package layout.
+"""
 
+import logging
+from pathlib import Path
+from typing import Optional
+from datetime import datetime
+
+from flask import (
+    Flask, render_template, request, jsonify, redirect, url_for, flash, session
+)
+
+from utils.config import get_config, load_config
+from database.db import get_db, init_db, Influencer, Comment, SentimentLabel
+from backend.pipeline import AnalysisPipeline, PipelineConfig
+from utils.i18n import i18n, t, get_language, set_language, get_languages
+from model.registry import ModelRegistry, auto_discover_models
+
+
+logger = logging.getLogger(__name__)
+
+# Initialize Flask app
+app = Flask(__name__,
+            template_folder='templates',
+            static_folder='static')
+
+# Load configuration
+config = load_config()
+app.secret_key = config.gui.secret_key
 
 
 # =============================================================================
@@ -417,12 +446,6 @@ def run_analysis_cli():
 def create_app(config_path: Optional[str] = None) -> Flask:
     """
     Application factory.
-    
-    Args:
-        config_path: Path to configuration file
-        
-    Returns:
-        Flask application instance
     """
     global config
     
@@ -442,11 +465,6 @@ def create_app(config_path: Optional[str] = None) -> Flask:
 def run_server(host: str = None, port: int = None, debug: bool = None):
     """
     Run the Flask development server.
-    
-    Args:
-        host: Host to bind to
-        port: Port to bind to
-        debug: Enable debug mode
     """
     host = host or config.gui.host
     port = port or config.gui.port

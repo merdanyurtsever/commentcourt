@@ -27,24 +27,22 @@ commentcourt/
 │   ├── registry.py          # @register dekoratörü ile model kaydı
 │   ├── sentiment.py         # 4 duygu modeli (BERT, LR, LSTM, RoBERTa)
 │   └── train.py             # Eğitim ve değerlendirme çerçevesi
-├── program/
-│   ├── core/                # Çekirdek İşleme
-│   │   ├── pipeline.py      # Analiz orkestrasyonu
-│   │   ├── cleaner.py       # Türkçe metin ön işleme
-│   │   ├── scorer.py        # Influencer puanlama algoritması
-│   │   └── scraper.py       # Veri toplama (harici)
-│   ├── gui/                 # Web Arayüzü
-│   │   ├── app.py           # Flask uygulaması
-│   │   ├── templates/       # Jinja2 HTML şablonları
-│   │   └── static/          # CSS ve JavaScript
-│   ├── utils/               # Yardımcı Araçlar
-│   │   ├── db.py            # SQLAlchemy ORM modelleri
-│   │   ├── config.py        # YAML yapılandırma yükleyici
-│   │   ├── io.py            # Dosya I/O işlemleri
-│   │   └── log.py           # Günlük kaydı kurulumu
-│   └── build/
-│       ├── requirements.txt # Python bağımlılıkları
-│       └── Dockerfile       # Konteyner oluşturma
+├── gui/                    # Web Arayüzü (Flask)
+│   ├── app.py               # Flask uygulaması & rotalar
+│   ├── templates/           # Jinja2 HTML şablonları
+│   └── static/              # CSS & JavaScript
+├── backend/                 # Temel iş mantığı
+│   ├── pipeline.py          # Analiz orkestrasyonu
+│   ├── cleaner.py           # Metin ön işleme
+│   └── scorer.py            # Basit influencer puanlama
+├── utils/                   # Yardımcı araçlar
+│   ├── config.py            # YAML yapılandırma yükleyici
+│   ├── io.py                # Dosya I/O işlemleri
+│   └── log.py               # Logging yapılandırması
+└── database/                # Veri tabanı katmanı ve veri dosyaları
+    ├── db.sqlite3           # SQLite veritabanı
+    ├── raw/                 # Ham veriler (varsa)
+    └── processed/           # İşlenmiş veri setleri
 └── database/
     ├── db.sqlite3           # SQLite veritabanı
     ├── raw/                 # Ham kazınmış veri
@@ -78,13 +76,13 @@ cd commentcourt
 pip install -r program/build/requirements.txt
 
 # Veritabanını başlatın
-python -c "from program.utils.db import DatabaseManager; DatabaseManager().create_tables()"
+python -c "from database.db import DatabaseManager; DatabaseManager().create_tables()"
 ```
 
 ### Web Arayüzünü Çalıştırma
 
 ```bash
-python -m program.gui.app
+python -m gui.app
 ```
 
 Ardından tarayıcınızda http://localhost:5000 adresini açın.
@@ -116,13 +114,13 @@ print(f"En iyi model: {best_model.name}, F1: {best_model.metrics['f1']:.4f}")
 ### Analiz Pipeline'ını Çalıştırma
 
 ```python
-from program.core.pipeline import AnalysisPipeline
+from backend.pipeline import AnalysisPipeline
 
 # Pipeline'ı başlat
 pipeline = AnalysisPipeline()
 
 # Tam analiz çalıştır
-pipeline.run_full_analysis()
+pipeline.run()
 
 # Veya belirli bir influencer'ı analiz et
 results = pipeline.analyze_influencer(influencer_id=1)
@@ -144,7 +142,7 @@ Influencer'lar ağırlıklı faktörler kullanılarak 0-10 ölçeğinde sıralan
 
 ## ⚙️ Yapılandırma
 
-`program/utils/config` dosyasını düzenleyin (YAML formatı):
+`utils/config` dosyasını düzenleyin (YAML formatı):
 
 ```yaml
 database:
@@ -221,10 +219,10 @@ class BenimOzelModelim(BaseMLModel):
 pytest
 
 # Kod stilini kontrol et
-flake8 model/ program/
+flake8 model/ backend/ utils/ gui/
 
 # Debug modunda çalıştır
-FLASK_DEBUG=1 python -m program.gui.app
+FLASK_DEBUG=1 python -m gui.app
 ```
 
 ---

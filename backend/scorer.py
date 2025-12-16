@@ -1,14 +1,57 @@
+"""Simple influencer scoring utilities.
+
+This module provides a compact, easy-to-read scoring function used by
+the pipeline to compute influencer scores from comment sentiments.
+"""
+
+from typing import List, Dict
+
+
+class InfluencerScorer:
+    """Minimal scorer: final_score = scale * normalized(positive - 0.5*negative)."""
+
+    def __init__(self, scale: int = 10):
+        self.scale = scale
+
+    def calculate_score(self, influencer_id: int, influencer_name: str, comments: List[Dict]) -> Dict:
+        """Compute a compact score summary for an influencer.
+
+        comments: list of dicts with keys: 'sentiment' (str) and optional 'confidence'.
+        Returns a small dict with final_score (0..scale) and counts.
+        """
+        total = len(comments)
+        positive = sum(1 for c in comments if c.get('sentiment') == 'positive')
+        negative = sum(1 for c in comments if c.get('sentiment') == 'negative')
+        neutral = sum(1 for c in comments if c.get('sentiment') == 'neutral')
+
+        if total == 0:
+            return {
+                'influencer_id': influencer_id,
+                'influencer_name': influencer_name,
+                'total_comments': 0,
+                'final_score': 0.0
+            }
+
+        raw = (positive - 0.5 * negative) / total  # simple weighted mean
+
+        # Map raw from [-0.5,1] to [0,1]
+        raw_min, raw_max = -0.5, 1.0
+        normalized = max(0.0, min(1.0, (raw - raw_min) / (raw_max - raw_min)))
+        final_score = round(normalized * self.scale, 2)
+
+        return {
+            'influencer_id': influencer_id,
+            'influencer_name': influencer_name,
+            'total_comments': total,
+            'positive': positive,
+            'negative': negative,
+            'neutral': neutral,
+            'final_score': final_score
+        }
 """
 Influencer Scoring System for CommentCourt.
 
-This module calculates and ranks influencer scores based on:
-- Sentiment distribution of comments
-- Comment volume
-- Confidence of predictions
-- Temporal trends
-
-The scoring algorithm is configurable and supports multiple
-scoring strategies.
+This module calculates and ranks influencer scores based on sentiment and other metrics.
 """
 
 import logging
@@ -141,18 +184,30 @@ class InfluencerScore:
 class InfluencerScorer:
     """
     Calculates and ranks influencer scores.
-    
-    Uses a configurable scoring algorithm that considers:
-    - Sentiment distribution
-    - Prediction confidence
-    - Comment volume
-    - Temporal trends
     """
     
-# REMOVED: program.core.scorer (cleared)
-
-# Use `backend.scorer` for scoring utilities.
-
+    def __init__(self, config: Optional[ScoringConfig] = None, scale: int = 10):
+        """
+        Initialize scorer.
+        """
+        if config is None:
+            config = ScoringConfig(scale=scale)
+        
+        self.config = config
+        self._all_scores: List[InfluencerScore] = []
+    
+    def calculate_score(self, influencer_id: int, influencer_name: str,
+                        comments: List[CommentData]) -> InfluencerScore:
+        """
+        Calculate score for a single influencer.
+        """
+        score = InfluencerScore(
+            influencer_id=influencer_id,
+            influencer_name=influencer_name
+        )
+        
+        if not comments:
+            return score
         
         # Filter by confidence if needed
         if self.config.use_confidence_weighting:
@@ -292,8 +347,6 @@ class InfluencerScorer:
     def _normalize_score(self, raw_score: float) -> float:
         """
         Normalize score to configured scale.
-        
-        Maps raw score (typically -0.5 to 1.0) to scale (0 to 10/5).
         """
         # Map from [-0.5, 1.0] to [0, scale]
         min_raw = self.config.negative_weight
@@ -313,12 +366,6 @@ class InfluencerScorer:
     def calculate_all_scores(self, influencer_comments: Dict[tuple, List[CommentData]]) -> List[InfluencerScore]:
         """
         Calculate scores for multiple influencers.
-        
-        Args:
-            influencer_comments: Dict mapping (id, name) to comments
-            
-        Returns:
-            List of InfluencerScore objects
         """
         scores = []
         
@@ -339,9 +386,6 @@ class InfluencerScorer:
     def get_rankings(self) -> List[Dict[str, Any]]:
         """
         Get ranked list of influencers.
-        
-        Returns:
-            List of dicts with influencer rankings
         """
         if not self._all_scores:
             return []
@@ -368,95 +412,4 @@ class InfluencerScorer:
     
     def get_improving_influencers(self) -> List[InfluencerScore]:
         """Get influencers with improving trends."""
-        return [s for s in self._all_scores if s.trend_direction == "improving"]
-    
-    def get_declining_influencers(self) -> List[InfluencerScore]:
-        """Get influencers with declining trends."""
-        return [s for s in self._all_scores if s.trend_direction == "declining"]
-
-
-class ScoringFactory:
-    """
-    Factory for creating different scoring strategies.
-    
-    Supports multiple scoring algorithms for A/B testing or
-    different use cases.
-    """
-    
-    STRATEGIES = {
-        'default': ScoringConfig(),
-        'conservative': ScoringConfig(
-            positive_weight=0.8,
-            negative_weight=-0.8,
-            neutral_weight=0.0,
-            min_comments_for_ranking=10
-        ),
-        'aggressive': ScoringConfig(
-            positive_weight=1.2,
-            negative_weight=-0.3,
-            neutral_weight=0.2,
-            min_comments_for_ranking=3
-        ),
-        'confidence_heavy': ScoringConfig(
-            use_confidence_weighting=True,
-            min_confidence_threshold=0.7
-        ),
-        'scale_5': ScoringConfig(
-            scale=5,
-            positive_weight=1.0,
-            negative_weight=-0.5,
-            neutral_weight=0.1
-        )
-    }
-    
-    @classmethod
-    def create_scorer(cls, strategy: str = 'default') -> InfluencerScorer:
-        """
-        Create a scorer with a predefined strategy.
-        
-        Args:
-            strategy: Name of scoring strategy
-            
-        Returns:
-            Configured InfluencerScorer
-        """
-        if strategy not in cls.STRATEGIES:
-            logger.warning(f"Unknown strategy '{strategy}', using default")
-            strategy = 'default'
-        
-        config = cls.STRATEGIES[strategy]
-        return InfluencerScorer(config)
-    
-    @classmethod
-    def list_strategies(cls) -> List[str]:
-        """List available scoring strategies."""
-        return list(cls.STRATEGIES.keys())
-
-
-def calculate_influencer_score(influencer_id: int, influencer_name: str,
-                               comments: List[Dict[str, Any]],
-                               scale: int = 10) -> InfluencerScore:
-    """
-    Convenience function to calculate a single influencer's score.
-    
-    Args:
-        influencer_id: Influencer ID
-        influencer_name: Influencer name
-        comments: List of comment dicts with 'sentiment', 'confidence', 'timestamp'
-        scale: Score scale (10 or 5)
-        
-    Returns:
-        InfluencerScore
-    """
-    # Convert to CommentData
-    comment_data = [
-        CommentData(
-            sentiment=c.get('sentiment', 'neutral'),
-            confidence=c.get('confidence', 0.5),
-            timestamp=c.get('timestamp')
-        )
-        for c in comments
-    ]
-    
-    scorer = InfluencerScorer(ScoringConfig(scale=scale))
-    return scorer.calculate_score(influencer_id, influencer_name, comment_data)
+        return [s for s in self._all_scores if s.trend_direction == 'improving']

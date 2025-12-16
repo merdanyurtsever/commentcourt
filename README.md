@@ -27,24 +27,22 @@ commentcourt/
 │   ├── registry.py          # Model registration with @register decorator
 │   ├── sentiment.py         # 4 sentiment models (BERT, LR, LSTM, RoBERTa)
 │   └── train.py             # Training & evaluation framework
-├── program/
-│   ├── core/                # Core Processing
-│   │   ├── pipeline.py      # Analysis orchestration
-│   │   ├── cleaner.py       # Turkish text preprocessing
-│   │   ├── scorer.py        # Influencer scoring algorithm
-│   │   └── scraper.py       # Data collection (external)
-│   ├── gui/                 # Web Interface
-│   │   ├── app.py           # Flask application
-│   │   ├── templates/       # Jinja2 HTML templates
-│   │   └── static/          # CSS & JavaScript
-│   ├── utils/               # Utilities
-│   │   ├── db.py            # SQLAlchemy ORM models
-│   │   ├── config.py        # YAML configuration loader
-│   │   ├── io.py            # File I/O operations
-│   │   └── log.py           # Logging setup
-│   └── build/
-│       ├── requirements.txt # Python dependencies
-│       └── Dockerfile       # Container build
+├── gui/                    # Web Interface (Flask)
+│   ├── app.py               # Flask application & routes
+│   ├── templates/           # Jinja2 HTML templates
+│   └── static/              # CSS & JavaScript
+├── backend/                 # Core backend logic
+│   ├── pipeline.py          # Analysis orchestration
+│   ├── cleaner.py           # Text preprocessing
+│   └── scorer.py            # Simplified influencer scoring
+├── utils/                   # Utilities
+│   ├── config.py            # YAML configuration loader
+│   ├── io.py                # File I/O operations
+│   └── log.py               # Logging setup
+└── database/                # Database layer and data files
+    ├── db.sqlite3           # SQLite database
+    ├── raw/                 # Raw data (if any)
+    └── processed/           # Processed datasets
 └── database/
     ├── db.sqlite3           # SQLite database
     ├── raw/                 # Raw scraped data
@@ -78,13 +76,13 @@ cd commentcourt
 pip install -r program/build/requirements.txt
 
 # Initialize database
-python -c "from program.utils.db import DatabaseManager; DatabaseManager().create_tables()"
+python -c "from database.db import DatabaseManager; DatabaseManager().create_tables()"
 ```
 
 ### Running the Web Interface
 
 ```bash
-python -m program.gui.app
+python -m gui.app
 ```
 
 Then open http://localhost:5000 in your browser.
@@ -116,13 +114,13 @@ print(f"Best model: {best_model.name} with F1: {best_model.metrics['f1']:.4f}")
 ### Running Analysis Pipeline
 
 ```python
-from program.core.pipeline import AnalysisPipeline
+from backend.pipeline import AnalysisPipeline
 
 # Initialize pipeline
 pipeline = AnalysisPipeline()
 
 # Run full analysis
-pipeline.run_full_analysis()
+pipeline.run()
 
 # Or analyze specific influencer
 results = pipeline.analyze_influencer(influencer_id=1)
@@ -144,7 +142,7 @@ Influencers are ranked on a 0-10 scale using weighted factors:
 
 ## ⚙️ Configuration
 
-Edit `program/utils/config` (YAML format):
+Edit `utils/config` (YAML format):
 
 ```yaml
 database:
@@ -219,10 +217,10 @@ class MyCustomModel(BaseMLModel):
 pytest
 
 # Check code style
-flake8 model/ program/
+flake8 model/ backend/ utils/ gui/
 
 # Run with debug mode
-FLASK_DEBUG=1 python -m program.gui.app
+FLASK_DEBUG=1 python -m gui.app
 ```
 
 ---
