@@ -428,6 +428,18 @@ class DatabaseManager:
                 comment.sentiment_scores = scores
                 comment.model_used = model_name
                 comment.analyzed_at = datetime.utcnow()
+
+    def update_comment_trust(self, comment_id: int, trust_score: float) -> None:
+        """Store computed trust score inside the comment's sentiment_scores JSON."""
+        with self.session_scope() as session:
+            comment = session.query(Comment).filter_by(id=comment_id).first()
+            if comment:
+                scores = comment.sentiment_scores or {}
+                # Keep existing scores, add trust_score key
+                scores['trust_score'] = float(trust_score)
+                comment.sentiment_scores = scores
+                # Do not modify analyzed_at here
+                session.add(comment)
     
     def save_model_metrics(self, model_name: str, metrics: Dict[str, Any],
                            model_version: str = None) -> ModelMetrics:

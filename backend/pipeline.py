@@ -17,6 +17,7 @@ from database.db import (
     Influencer, Comment, SentimentLabel, Platform
 )
 from backend.cleaner import TextCleaner
+from backend.data_loader import DataLoader
 from model.registry import ModelRegistry, auto_discover_models
 from model.base import BaseMLModel, PredictionResult
 
@@ -35,6 +36,7 @@ class PipelineConfig:
     
     # Database
     db_path: str = "database/db.sqlite3"
+    transformer_model_path: Optional[str] = None  # Local checkpoint or HF id for transformer inference
     
     # Processing
     batch_size: int = 100
@@ -350,6 +352,81 @@ class AnalysisPipeline:
     def _update_rankings(self) -> None:
         """Update influencer rankings."""
         self.db.update_all_rankings()
+
+    def compute_trust_scores(self, model_path: Optional[str] = None, limit: Optional[int] = None) -> Dict[str, Any]:
+        """Compute trust scores for comments and store them in the DB.
+
+        Args:
+            model_path: Optional transformer checkpoint to use (if None, falls back to registered rule-based model)
+            limit: Optional number of comments to process (default: batch_size)
+
+        Returns:
+            Dict with summary statistics
+        """
+        from backend.inference import TransformerInference
+        from backend.scorer import compute_trust_score
+
+        inference = TransformerInference(model_path or self.config.transformer_model_path)
+
+        with self.db.session_scope() as session:
+            query = session.query(Comment).filter(Comment.text_cleaned.isnot(None))
+            if limit:
+                query = query.limit(limit)
+            comments = query.all()
+
+            if not comments:
+                return {'processed': 0, 'errors': []}
+
+            texts = [c.text_cleaned or c.text for c in comments]
+
+            # comment lengths and normalizations
+            lengths = [len(t) for t in texts]
+            max_len = max(lengths) if lengths and max(lengths) > 0 else 1
+
+            # For like_count and has_images we don't have columns; default to 0/False
+            like_counts = []
+            has_images = []
+            rating_norms = []
+
+            for c in comments:
+                rating = c.original_rating or 0.0
+                rating_norms.append(float(rating) / 5.0 if rating else 0.0)
+                # placeholders for missing data
+                like_counts.append(0.0)
+                has_images.append(False)
+
+            like_max = max(like_counts) if like_counts and max(like_counts) > 0 else 1.0
+            like_norms = [float(l) / like_max if like_max else 0.0 for l in like_counts]
+
+            comment_length_norms = [float(l) / max_len for l in lengths]
+
+            # Predict sentiments as continuous scores
+            try:
+                scores = inference.predict_scores(texts, batch_size=self.config.batch_size)
+            except Exception as e:
+                self.result.errors.append(str(e))
+                return {'processed': 0, 'errors': [str(e)]}
+
+            processed = 0
+            for c, s, r_norm, has_img, l_norm in zip(comments, scores, rating_norms, has_images, comment_length_norms):
+                trust = compute_trust_score(s, r_norm, has_img, 0.0, l_norm)
+
+                # Save intermediate prediction (keep other scores if present)
+                existing = c.sentiment_scores or {}
+                existing['sentiment_score'] = float(s)
+                existing['trust_score'] = float(trust)
+                c.sentiment_scores = existing
+
+                # Also optionally set categorical sentiment if threshold
+                try:
+                    c.sentiment = SentimentLabel.POSITIVE if s > 0.5 else SentimentLabel.NEGATIVE
+                    c.confidence = float(s)
+                except Exception:
+                    pass
+
+                processed += 1
+
+        return {'processed': processed, 'errors': []}
     
     def _log_summary(self) -> None:
         """Log pipeline execution summary."""
@@ -401,46 +478,8 @@ class AnalysisPipeline:
         return self._best_model.predict_single(cleaned)
 
 
-class DataLoader:
-    """
-    Utility class for loading data from various sources.
-    
-    Supports loading from:
-    - JSON files (scraped data)
-    - CSV files
-    - Database
-    """
-    
-    @staticmethod
-    def load_from_json(file_path: Path) -> List[Dict[str, Any]]:
-        """Load comments from JSON file."""
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    
-    @staticmethod
-    def load_from_csv(file_path: Path, text_col: str = 'text',
-                      label_col: str = 'label') -> List[Dict[str, Any]]:
-        """Load comments from CSV file."""
-        import pandas as pd
-        
-        df = pd.read_csv(file_path)
-        return [
-            {'text': row[text_col], 'label': row.get(label_col)}
-            for _, row in df.iterrows()
-        ]
-    
-    @staticmethod
-    def load_from_db(db: DatabaseManager, 
-                     influencer_id: Optional[int] = None) -> List[Dict[str, Any]]:
-        """Load comments from database."""
-        with db.session_scope() as session:
-            query = session.query(Comment)
-            
-            if influencer_id:
-                query = query.filter_by(influencer_id=influencer_id)
-            
-            comments = query.all()
-            return [c.to_dict() for c in comments]
+# Data loading utilities have been moved to `backend.data_loader.DataLoader`.
+# See `backend/data_loader.py` for implementations.
 
 
 def run_pipeline(config: Optional[PipelineConfig] = None,
