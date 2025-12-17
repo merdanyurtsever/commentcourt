@@ -1,3 +1,6 @@
+import re
+import unicodedata
+import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
@@ -6,41 +9,138 @@ from sklearn.metrics import accuracy_score
 import pickle
 import os
 
-# Load the dataset (adjust path if needed)
-data_path = 'database/raw/Veri_Seti.xlsx'  # Assuming it's in database/ folder
-if not os.path.exists(data_path):
-    raise FileNotFoundError(f"Dataset not found at {data_path}")
 
-df = pd.read_excel(data_path)
+# ---------- Config ----------
+DATA_PATH = 'database/raw/Veri_Seti.xlsx'
+MODEL_OUT = 'model/weights/merdan_classic_model.pkl'
+MAX_FEATURES = 5000
+TEST_SIZE = 0.2
+RANDOM_STATE = 42
 
-# Assume columns: 'comment' (text) and 'rating' (numeric)
-# Preprocess: Drop NaNs, lowercase comments
-df = df.dropna(subset=['comment', 'rating'])
-df['comment'] = df['comment'].str.lower()
 
-# Derive initial labels from ratings (e.g., >5 = positive, else negative)
-df['label'] = (df['rating'] > 5).astype(int)  # 1 = positive, 0 = negative
+def detect_column(df, candidates):
+    cols_lower = {c.lower(): c for c in df.columns}
+    for cand in candidates:
+        if cand in cols_lower:
+            return cols_lower[cand]
+    return None
 
-# Vectorize text
-vectorizer = TfidfVectorizer(max_features=5000, stop_words='english')  # Adjust stop_words for Turkish if needed
-X = vectorizer.fit_transform(df['comment'])
-y = df['label']
 
-# Split data
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+def clean_text(text: str) -> str:
+    if not isinstance(text, str):
+        return ''
+    text = unicodedata.normalize('NFKC', text)
+    text = text.lower()
+    # remove urls, emails, mentions, hashtags
+    text = re.sub(r'http\S+|www\.[^\s]+', ' ', text)
+    text = re.sub(r'\S+@\S+', ' ', text)
+    text = re.sub(r'@\w+', ' ', text)
+    text = re.sub(r'#\w+', ' ', text)
+    # remove punctuation and numbers (keep Turkish letters)
+    text = re.sub(r'[^a-zçğıöşü\s]', ' ', text)
+    # collapse repeated characters (e.g., cooool -> coool)
+    text = re.sub(r'(.)\1{2,}', r'\1\1', text)
+    # collapse whitespace
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
-# Initial training to detect mismatches
+
+if not os.path.exists(DATA_PATH):
+    raise FileNotFoundError(f"Dataset not found at {DATA_PATH}")
+
+df = pd.read_excel(DATA_PATH)
+
+# Detect comment and rating columns from common candidates
+comment_col = detect_column(df, ['comment', 'yorum', 'text', 'content', 'message', 'review'])
+rating_col = detect_column(df, ['rating', 'puan', 'score', 'stars', 'label'])
+
+if comment_col is None:
+    raise ValueError(f"Could not find a comment/text column in {list(df.columns)}")
+
+# If rating not found, try to infer label column
+if rating_col is None:
+    # If there is an existing binary/text label column
+    if 'label' in df.columns:
+        rating_col = 'label'
+    else:
+        raise ValueError(f"Could not find a rating/score column in {list(df.columns)}")
+
+# Prepare dataframe: drop rows without comment
+df = df.dropna(subset=[comment_col])
+df[comment_col] = df[comment_col].astype(str)
+
+# Clean comments
+df['clean_comment'] = df[comment_col].apply(clean_text)
+
+# Drop very short comments
+df = df[df['clean_comment'].str.len() >= 3]
+
+# Handle rating -> binary label mapping
+def derive_label(val):
+    # numeric ratings: map >=7 -> positive (1), <=4 -> negative (0), else neutral (None)
+    try:
+        num = float(val)
+        if num >= 7:
+            return 1
+        if num <= 4:
+            return 0
+        return None
+    except Exception:
+        # if categorical labels already present
+        s = str(val).strip().lower()
+        if s in ['positive', 'pos', 'pozitif', '1']:
+            return 1
+        if s in ['negative', 'neg', 'negatif', '0']:
+            return 0
+        return None
+
+
+df['label'] = df[rating_col].apply(derive_label)
+# Drop neutral/unknown labels
+df = df.dropna(subset=['label'])
+df['label'] = df['label'].astype(int)
+
+X_texts = df['clean_comment'].values
+y = df['label'].values
+
+# Prepare stop words: try NLTK Turkish stopwords, else fallback
+stop_words = None
+try:
+    import nltk
+    try:
+        nltk.data.find('corpora/stopwords')
+    except Exception:
+        # try to download if possible (non-fatal)
+        try:
+            nltk.download('stopwords')
+        except Exception:
+            pass
+    from nltk.corpus import stopwords as nltk_stopwords
+    stop_words = list(nltk_stopwords.words('turkish'))
+except Exception:
+    # Fallback minimal Turkish stopword list
+    stop_words = [
+        've','bir','bu','da','de','ile','için','mi','ne','ama','çok','gibi',
+        'olarak','ya','kadar','sonra','önce','eğer','çünkü','ben','sen','o',
+        'biz','siz','onlar','her','hiç','daha','ile','var','yok','olan'
+    ]
+
+# Vectorize
+vectorizer = TfidfVectorizer(max_features=MAX_FEATURES, stop_words=stop_words)
+X = vectorizer.fit_transform(X_texts)
+
+# Train/test split with stratify
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=y
+)
+
+# Initial simple training to detect mismatches (optional weighting)
 nb_model = MultinomialNB()
 nb_model.fit(X_train, y_train)
 y_pred_train = nb_model.predict(X_train)
 
-# Calculate weights: Lower weight for mismatches
-sample_weights = []
-for i, (pred, true) in enumerate(zip(y_pred_train, y_train)):
-    if pred != true:
-        sample_weights.append(0.1)  # Low weight for mismatches
-    else:
-        sample_weights.append(1.0)  # Full weight for matches
+# Calculate sample weights: penalize samples mismatching the simple model
+sample_weights = np.where(y_pred_train != y_train, 0.2, 1.0)
 
 # Retrain with adjusted weights
 nb_model_weighted = MultinomialNB()
@@ -51,8 +151,8 @@ y_pred_test = nb_model_weighted.predict(X_test)
 accuracy = accuracy_score(y_test, y_pred_test)
 print(f"Model Accuracy: {accuracy:.2f}")
 
-# Save model and vectorizer
-with open('merdan_classic_model.pkl', 'wb') as f:
-    pickle.dump((nb_model_weighted, vectorizer), f)
+# Save model and vectorizer together
+with open(MODEL_OUT, 'wb') as f:
+    pickle.dump({'model': nb_model_weighted, 'vectorizer': vectorizer}, f)
 
-print("Model saved as merdan_classic_model.pkl")
+print(f"Model and vectorizer saved as {MODEL_OUT}")

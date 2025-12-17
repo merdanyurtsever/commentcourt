@@ -16,3 +16,4 @@ utils/__pycache__/config.cpython-314.pyc
 model/weights/*
 backend/__pycache__/data_loader.cpython-314.pyc
 .pytest_cache
+database/raw/.~lock.Veri_Seti.xlsx#
