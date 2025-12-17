@@ -30,6 +30,8 @@ def clean_text(text: str) -> str:
     if not isinstance(text, str):
         return ''
     text = unicodedata.normalize('NFKC', text)
+    # Turkish-aware lowercase: handle dotted/dotless I
+    text = text.replace('İ', 'i').replace('I', 'ı')
     text = text.lower()
     # remove urls, emails, mentions, hashtags
     text = re.sub(r'http\S+|www\.[^\s]+', ' ', text)
@@ -43,6 +45,25 @@ def clean_text(text: str) -> str:
     # collapse whitespace
     text = re.sub(r'\s+', ' ', text).strip()
     return text
+
+
+def preprocess_text(text: str, stop_words_list=None, stemmer=None) -> str:
+    # Clean base text
+    cleaned = clean_text(text)
+    if cleaned == '':
+        return ''
+    # tokenise on whitespace
+    tokens = cleaned.split()
+    # remove stopwords
+    if stop_words_list:
+        tokens = [t for t in tokens if t not in stop_words_list]
+    # apply stemmer if provided
+    if stemmer:
+        try:
+            tokens = [stemmer.stem(t) for t in tokens]
+        except Exception:
+            pass
+    return ' '.join(tokens)
 
 
 if not os.path.exists(DATA_PATH):
@@ -105,18 +126,24 @@ y = df['label'].values
 
 # Prepare stop words: try NLTK Turkish stopwords, else fallback
 stop_words = None
+stemmer = None
 try:
     import nltk
     try:
         nltk.data.find('corpora/stopwords')
     except Exception:
-        # try to download if possible (non-fatal)
         try:
             nltk.download('stopwords')
         except Exception:
             pass
     from nltk.corpus import stopwords as nltk_stopwords
     stop_words = list(nltk_stopwords.words('turkish'))
+    # try to get Snowball stemmer for Turkish
+    try:
+        from nltk.stem.snowball import SnowballStemmer
+        stemmer = SnowballStemmer('turkish')
+    except Exception:
+        stemmer = None
 except Exception:
     # Fallback minimal Turkish stopword list
     stop_words = [
@@ -125,9 +152,16 @@ except Exception:
         'biz','siz','onlar','her','hiç','daha','ile','var','yok','olan'
     ]
 
+# Ensure stop_words is a list (sklearn expects list or None)
+if isinstance(stop_words, set):
+    stop_words = list(stop_words)
+
+# Preprocess texts with token-level stopword removal and stemming
+X_texts_pre = [preprocess_text(t, stop_words_list=stop_words, stemmer=stemmer) for t in X_texts]
+
 # Vectorize
-vectorizer = TfidfVectorizer(max_features=MAX_FEATURES, stop_words=stop_words)
-X = vectorizer.fit_transform(X_texts)
+vectorizer = TfidfVectorizer(max_features=MAX_FEATURES, stop_words=None)
+X = vectorizer.fit_transform(X_texts_pre)
 
 # Train/test split with stratify
 X_train, X_test, y_train, y_test = train_test_split(

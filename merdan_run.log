@@ -1,2 +1,2 @@
 Model Accuracy: 1.00
-Model and vectorizer saved as merdan_classic_model.pkl
+Model and vectorizer saved as model/weights/merdan_classic_model.pkl
