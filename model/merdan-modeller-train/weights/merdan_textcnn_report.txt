@@ -1,0 +1,5 @@
+Model: TextCNN
+MSE: 0.042664
+MAE: 0.086665
+R2: 0.321024
+Pearson: 0.611493
