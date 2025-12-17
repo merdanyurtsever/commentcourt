@@ -10,3 +10,7 @@ backend/__pycache__/pipeline.cpython-314.pyc
 backend/__pycache__/inference.cpython-314.pyc
 gui/__pycache__/app.cpython-314.pyc
 utils/__pycache__/config.cpython-314.pyc
+model/weights/*
+*.pyc
+gui/__pycache__/app.cpython-314.pyc
+utils/__pycache__/config.cpython-314.pyc
