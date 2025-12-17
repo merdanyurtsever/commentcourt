@@ -471,6 +471,9 @@ def main():
     parser.add_argument('--models', type=str, nargs='+', help='Models to train (default: all)')
     parser.add_argument('--experiment', type=str, default='default', help='Experiment name')
     parser.add_argument('--sample', action='store_true', help='Use sample dataset')
+    parser.add_argument('--generate-merdan-bias', action='store_true', help='Generate naive merdan bias from Excel')
+    parser.add_argument('--excel', type=str, help='Excel file to read (for merdan bias generation)')
+    parser.add_argument('--bias-out', type=str, default='model/weights/merdan_bias.json', help='Output path for merdan bias JSON')
     
     args = parser.parse_args()
     
@@ -480,6 +483,16 @@ def main():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
+    # Handle special CLI action for bias generation
+    if args.generate_merdan_bias:
+        # Generate bias file and exit
+        from backend.data_loader import DataLoader
+        excel = Path(args.excel or 'database/raw/Veri_Seti.xlsx')
+        out = Path(args.bias_out)
+        DataLoader.generate_merdan_bias_from_excel(excel, out)
+        print(f"Generated merdan bias at {out}")
+        return
+
     # Load or create dataset
     if args.sample or not args.data:
         dataset = Dataset.create_sample_dataset(1000)

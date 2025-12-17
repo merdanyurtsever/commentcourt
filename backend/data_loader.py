@@ -153,3 +153,85 @@ class DataLoader:
             json.dump([{'text': s['text'], 'label': s['label']} for s in filtered], f, ensure_ascii=False, indent=2)
 
         return
+
+    @staticmethod
+    def generate_merdan_bias_from_excel(file_path: Path, out_path: Path) -> None:
+        """Generate a naive 'merdan' bias file from an Excel dataset.
+
+        The function uses the rule-based model to predict sentiment on each
+        comment and compares it to the rating-derived label. It computes per-
+        keyword bias weights and an overall mismatch penalty. The output is
+        a small JSON file that can be used by the lightweight `merdan_classic`
+        model to nudge predictions.
+        """
+        import collections
+        from model.registry import ModelRegistry
+        from pathlib import Path as P
+
+        samples = DataLoader.load_from_excel(file_path, drop_edges=False)
+
+        # Use rule-based predictions as the textual signal
+        try:
+            rule = ModelRegistry.get('rule_based')
+        except Exception:
+            rule = None
+
+        keyword_counts = collections.Counter()
+        keyword_agree = collections.Counter()
+        total = 0
+        mismatches = 0
+
+        # Collect candidate keywords from rule lexicons if available
+        positive_keywords = set()
+        negative_keywords = set()
+        if rule:
+            positive_keywords = set(getattr(rule, 'positive_words', []))
+            negative_keywords = set(getattr(rule, 'negative_words', []))
+
+        for s in samples:
+            text = s.get('text') or ''
+            rating_label = s.get('label')
+            total += 1
+
+            if rule:
+                pred = rule.predict_single(text)
+                pred_label = pred.sentiment
+            else:
+                pred_label = rating_label
+
+            if pred_label != rating_label:
+                mismatches += 1
+
+            # Count keyword occurrences and whether they agree with rating
+            words = set((text or '').split())
+            for w in words:
+                if w in positive_keywords or w in negative_keywords:
+                    keyword_counts[w] += 1
+                    if pred_label == rating_label:
+                        keyword_agree[w] += 1
+
+        # Compute per-keyword weight in [0.5, 1.5] where >1 favours agreement
+        keyword_weights = {}
+        for k, cnt in keyword_counts.items():
+            agree = keyword_agree.get(k, 0)
+            score = (agree - (cnt - agree)) / cnt if cnt else 0.0  # in [-1,1]
+            weight = 1.0 + 0.5 * score
+            keyword_weights[k] = round(weight, 3)
+
+        mismatch_rate = float(mismatches) / float(total) if total else 0.0
+        # mismatch_penalty in [0.2, 1.0] smaller when mismatches are common
+        mismatch_penalty = round(max(0.2, 1.0 - mismatch_rate), 3)
+
+        out = {
+            'generated_from': str(file_path),
+            'total_samples': total,
+            'mismatch_rate': round(mismatch_rate, 3),
+            'mismatch_penalty': mismatch_penalty,
+            'keyword_weights': keyword_weights
+        }
+
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(out_path, 'w', encoding='utf-8') as f:
+            json.dump(out, f, ensure_ascii=False, indent=2)
+
+        return

@@ -1,11 +1,22 @@
 from model.base import BaseMLModel, PredictionResult, ModelMetrics
 from model.registry import ModelRegistry
+from pathlib import Path
+import json
 
 
 @ModelRegistry.register("merdan_classic", "Merdan's classic placeholder model")
 class MerdanClassic(BaseMLModel):
     def __init__(self, name: str = "merdan_classic", version: str = "0.0.0"):
         super().__init__(name, version)
+        # Try to load naive bias weights if present
+        self.bias = {}
+        bias_path = Path('model/weights/merdan_bias.json')
+        try:
+            if bias_path.exists():
+                with open(bias_path, 'r', encoding='utf-8') as f:
+                    self.bias = json.load(f)
+        except Exception:
+            self.bias = {}
 
     def train(self, texts, labels, validation_split: float = 0.2, **kwargs) -> ModelMetrics:
         self.is_trained = True
@@ -39,6 +50,44 @@ class MerdanClassic(BaseMLModel):
             scores = dict(pred.scores or {})
             scores['negative'] = max(scores.get('negative', 0.0), pred.confidence)
             pred.scores = scores
+
+        # Apply generated bias weights (if any)
+        try:
+            kw = self.bias.get('keyword_weights', {}) or {}
+            mismatch_pen = float(self.bias.get('mismatch_penalty', 1.0))
+
+            words = set(txt.split())
+            # Adjust scores according to keyword weights
+            scores = dict(pred.scores or {})
+            for w in words:
+                if w in kw:
+                    weight = float(kw[w])
+                    # If word is present, nudge positive/negative scores
+                    # Use a heuristic: if it looks positive/negative, adjust that side
+                    if w in positive_keywords:
+                        scores['positive'] = scores.get('positive', 0.0) * weight
+                    if w in negative_keywords:
+                        scores['negative'] = scores.get('negative', 0.0) * weight
+
+            # Re-normalize scores and set final sentiment/confidence
+            total = sum(scores.values()) if scores else 0.0
+            if total > 0:
+                for k in scores:
+                    scores[k] = scores[k] / total
+
+                # set sentiment to argmax
+                best = max(scores.items(), key=lambda x: x[1])
+                pred.sentiment = best[0]
+                # reduce confidence a bit if ambiguous (both pos and neg present)
+                if scores.get('positive', 0.0) > 0 and scores.get('negative', 0.0) > 0:
+                    pred.confidence = float(max(scores.get(pred.sentiment, 0.0) * mismatch_pen, 0.5))
+                else:
+                    pred.confidence = float(max(scores.get(pred.sentiment, 0.0), 0.5))
+
+                pred.scores = scores
+        except Exception:
+            # Fall back silently to previous prediction
+            pass
 
         return pred
 
