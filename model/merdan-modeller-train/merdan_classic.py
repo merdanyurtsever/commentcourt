@@ -3,16 +3,16 @@ import unicodedata
 import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.naive_bayes import MultinomialNB
+from sklearn.linear_model import Ridge
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import pickle
 import os
 
 
 # ---------- Config ----------
 DATA_PATH = 'database/raw/Veri_Seti.xlsx'
-MODEL_OUT = 'model/weights/merdan_classic_model.pkl'
+MODEL_OUT = 'model/merdan-modeller-train/weights/merdan_classic_model.pkl'
 MAX_FEATURES = 5000
 TEST_SIZE = 0.2
 RANDOM_STATE = 42
@@ -97,32 +97,35 @@ df['clean_comment'] = df[comment_col].apply(clean_text)
 df = df[df['clean_comment'].str.len() >= 3]
 
 # Handle rating -> binary label mapping
-def derive_label(val):
-    # numeric ratings: map >=7 -> positive (1), <=4 -> negative (0), else neutral (None)
+def derive_score(val, num_min=None, num_max=None):
+    # If numeric, scale to [0,1] using observed min/max
     try:
         num = float(val)
-        if num >= 7:
-            return 1
-        if num <= 4:
-            return 0
-        return None
+        if num_min is None or num_max is None or num_max == num_min:
+            return 0.5
+        return float((num - num_min) / (num_max - num_min))
     except Exception:
-        # if categorical labels already present
         s = str(val).strip().lower()
         if s in ['positive', 'pos', 'pozitif', '1']:
-            return 1
+            return 1.0
         if s in ['negative', 'neg', 'negatif', '0']:
-            return 0
+            return 0.0
+        if s in ['neutral', 'nötr', 'nötral', 'orta']:
+            return 0.5
         return None
 
+# Compute numeric min/max for scaling where possible
+numeric_ratings = pd.to_numeric(df[rating_col], errors='coerce')
+num_min = None if numeric_ratings.dropna().empty else float(numeric_ratings.min())
+num_max = None if numeric_ratings.dropna().empty else float(numeric_ratings.max())
 
-df['label'] = df[rating_col].apply(derive_label)
-# Drop neutral/unknown labels
-df = df.dropna(subset=['label'])
-df['label'] = df['label'].astype(int)
+df['score'] = df[rating_col].apply(lambda v: derive_score(v, num_min=num_min, num_max=num_max))
+# Drop rows without a score
+df = df.dropna(subset=['score'])
+df['score'] = df['score'].astype(float)
 
 X_texts = df['clean_comment'].values
-y = df['label'].values
+y = df['score'].values
 
 # Prepare stop words: try NLTK Turkish stopwords, else fallback
 stop_words = None
@@ -163,30 +166,47 @@ X_texts_pre = [preprocess_text(t, stop_words_list=stop_words, stemmer=stemmer) f
 vectorizer = TfidfVectorizer(max_features=MAX_FEATURES, stop_words=None)
 X = vectorizer.fit_transform(X_texts_pre)
 
-# Train/test split with stratify
+# Train/test split (regression)
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=y
+    X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE
 )
 
-# Initial simple training to detect mismatches (optional weighting)
-nb_model = MultinomialNB()
-nb_model.fit(X_train, y_train)
-y_pred_train = nb_model.predict(X_train)
+# Train a simple Ridge regression to predict sentiment score in [0,1]
+reg = Ridge(alpha=1.0)
+reg.fit(X_train, y_train)
+y_pred_test = reg.predict(X_test)
 
-# Calculate sample weights: penalize samples mismatching the simple model
-sample_weights = np.where(y_pred_train != y_train, 0.2, 1.0)
+# Evaluate regression metrics
+mse = mean_squared_error(y_test, y_pred_test)
+mae = mean_absolute_error(y_test, y_pred_test)
+r2 = r2_score(y_test, y_pred_test)
+try:
+    corr = np.corrcoef(y_test, y_pred_test)[0, 1]
+except Exception:
+    corr = float('nan')
 
-# Retrain with adjusted weights
-nb_model_weighted = MultinomialNB()
-nb_model_weighted.fit(X_train, y_train, sample_weight=sample_weights)
+print(f"MSE: {mse:.6f}")
+print(f"MAE: {mae:.6f}")
+print(f"R2: {r2:.6f}")
+print(f"Pearson correlation: {corr:.6f}")
 
-# Evaluate on test set
-y_pred_test = nb_model_weighted.predict(X_test)
-accuracy = accuracy_score(y_test, y_pred_test)
-print(f"Model Accuracy: {accuracy:.2f}")
+# Ensure output directory exists
+out_dir = os.path.dirname(MODEL_OUT) or '.'
+os.makedirs(out_dir, exist_ok=True)
+
+# Save textual regression report
+report_path = os.path.join(out_dir, 'merdan_classic_regression_report.txt')
+with open(report_path, 'w', encoding='utf-8') as rf:
+    rf.write(f"MSE: {mse:.6f}\n")
+    rf.write(f"MAE: {mae:.6f}\n")
+    rf.write(f"R2: {r2:.6f}\n")
+    rf.write(f"Pearson correlation: {corr:.6f}\n\n")
+    rf.write(f"Test size: {len(y_test)}\n")
+
+print(f"Saved regression report to {report_path}")
 
 # Save model and vectorizer together
 with open(MODEL_OUT, 'wb') as f:
-    pickle.dump({'model': nb_model_weighted, 'vectorizer': vectorizer}, f)
+    pickle.dump({'model': reg, 'vectorizer': vectorizer}, f)
 
-print(f"Model and vectorizer saved as {MODEL_OUT}")
+print(f"Regression model and vectorizer saved as {MODEL_OUT}")

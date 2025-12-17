@@ -1,0 +1,13 @@
+/home/merdan/devbox/home/merdandev/mlcourse/commentcourt/.venv/lib64/python3.14/site-packages/sklearn/metrics/_classification.py:620: UserWarning: A single label was found in 'y_true' and 'y_pred'. For the confusion matrix to have the correct shape, use the 'labels' parameter to pass all known labels.
+  warnings.warn(
+Model Accuracy: 1.0000
+              precision    recall  f1-score   support
+
+    negative       1.00      1.00      1.00       545
+
+    accuracy                           1.00       545
+   macro avg       1.00      1.00      1.00       545
+weighted avg       1.00      1.00      1.00       545
+
+Saved evaluation report to model/weights/merdan_classic_report.txt and confusion matrix to model/weights/merdan_classic_confusion_matrix.csv
+Model and vectorizer saved as model/weights/merdan_classic_model.pkl
