@@ -362,6 +362,63 @@ def api_model_comparison():
     return jsonify(db.get_model_comparison())
 
 
+@app.route('/api/scores')
+def api_scores():
+    """API: Return different influencer score lists.
+
+    Query params:
+      - type: 'overall'|'positive_ratio'|'total_comments'|'merdan_bias'
+      - limit: number of results
+    """
+    db = get_db()
+    typ = request.args.get('type', 'overall')
+    limit = request.args.get('limit', 50, type=int)
+
+    influencers = db.get_all_influencers(active_only=True)
+
+    data = []
+
+    if typ == 'overall':
+        for inf in influencers:
+            data.append({'id': inf.id, 'name': inf.name, 'score': round(inf.overall_score, 3)})
+        data.sort(key=lambda x: x['score'], reverse=True)
+    elif typ == 'positive_ratio':
+        for inf in influencers:
+            data.append({'id': inf.id, 'name': inf.name, 'score': round(inf.positive_ratio, 3)})
+        data.sort(key=lambda x: x['score'], reverse=True)
+    elif typ == 'total_comments':
+        for inf in influencers:
+            data.append({'id': inf.id, 'name': inf.name, 'score': int(inf.total_comments)})
+        data.sort(key=lambda x: x['score'], reverse=True)
+    elif typ == 'merdan_bias':
+        # Evaluate naive Merdan model on influencer comments and average positive scores
+        try:
+            model = ModelRegistry.get_cached('merdan_classic')
+        except Exception:
+            model = None
+
+        for inf in influencers:
+            comments = db.get_comments_by_influencer(inf.id)
+            texts = [c.text for c in comments if c.text]
+            if not texts:
+                avg = 0.0
+            else:
+                preds = model.predict(texts) if model else []
+                vals = []
+                for p in preds:
+                    if p.scores and 'positive' in p.scores:
+                        vals.append(p.scores['positive'])
+                    else:
+                        vals.append(1.0 if p.sentiment == 'positive' else (0.0 if p.sentiment == 'negative' else 0.5))
+                avg = sum(vals) / len(vals) if vals else 0.0
+            data.append({'id': inf.id, 'name': inf.name, 'score': round(avg * config.scoring.scale, 3)})
+        data.sort(key=lambda x: x['score'], reverse=True)
+    else:
+        return jsonify({'error': 'Unknown score type'}), 400
+
+    return jsonify(data[:limit])
+
+
 @app.route('/api/analyze', methods=['POST'])
 def api_analyze():
     """API: Analyze text."""

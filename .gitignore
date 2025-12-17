@@ -14,3 +14,4 @@ utils/__pycache__/config.cpython-314.pyc
 gui/__pycache__/app.cpython-314.pyc
 utils/__pycache__/config.cpython-314.pyc
 model/weights/*
+backend/__pycache__/data_loader.cpython-314.pyc

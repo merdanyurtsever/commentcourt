@@ -238,6 +238,8 @@ MIT License
 3. Make your changes
 4. Submit a pull request
 
+See also: `docs/SIMPLIFIED.md` for details on the simplified code style and recent preprocessing/ui features.
+
 ---
 
 *Built for Turkish e-commerce influencer analysis* 🇹🇷

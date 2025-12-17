@@ -75,3 +75,81 @@ class DataLoader:
             json.dump(samples, f, ensure_ascii=False, indent=2)
 
         return
+
+    @staticmethod
+    def load_from_excel(file_path: Path, text_col: str = 'comment', rating_col: str = 'rating',
+                        drop_edges: bool = True) -> List[Dict[str, Any]]:
+        """Load comments from an Excel file and infer labels from ratings.
+
+        Simple, explicit rules:
+         - rating >= 4 => 'positive'
+         - rating <= 2 => 'negative'
+         - otherwise => 'neutral'
+         - edge cases (missing text or missing rating) are flagged and can be dropped
+        """
+        import pandas as pd
+        from backend.preprocessor import Preprocessor
+
+        df = pd.read_excel(file_path)
+
+        samples = []
+        pre = Preprocessor()
+
+        # prefer columns that match common names
+        if text_col not in df.columns:
+            # try common alternatives
+            for alt in ('text', 'comment_text', 'yorum'):
+                if alt in df.columns:
+                    text_col = alt
+                    break
+
+        if rating_col not in df.columns:
+            for alt in ('rating', 'puan', 'stars'):
+                if alt in df.columns:
+                    rating_col = alt
+                    break
+
+        for _, row in df.iterrows():
+            raw_text = row.get(text_col)
+            rating = row.get(rating_col)
+
+            if raw_text is None or not str(raw_text).strip():
+                if drop_edges:
+                    continue
+                label = 'neutral'
+                edge = True
+            else:
+                edge = False
+                cleaned = pre.preprocess(str(raw_text))
+
+                # Use rating as proxy label if present and numeric
+                try:
+                    r = float(rating)
+                    if r >= 4.0:
+                        label = 'positive'
+                    elif r <= 2.0:
+                        label = 'negative'
+                    else:
+                        label = 'neutral'
+                except Exception:
+                    # No numeric rating: fallback to neutral but mark edge
+                    label = 'neutral'
+                    edge = True
+
+            samples.append({'text': cleaned if not edge else (str(raw_text) or ''),
+                            'label': label,
+                            'edge_case': edge})
+
+        return samples
+
+    @staticmethod
+    def prepare_training_from_excel(file_path: Path, out_path: Path) -> None:
+        """Read Excel and write a processed training JSON to out_path."""
+        samples = DataLoader.load_from_excel(file_path)
+        # Filter out edge cases by default
+        filtered = [s for s in samples if not s.get('edge_case')]
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(out_path, 'w', encoding='utf-8') as f:
+            json.dump([{'text': s['text'], 'label': s['label']} for s in filtered], f, ensure_ascii=False, indent=2)
+
+        return

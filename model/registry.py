@@ -164,6 +164,7 @@ def auto_discover_models(package_path: str = "model") -> None:
         if modname not in ('base', 'registry'):
             try:
                 importlib.import_module(f"{package_path}.{modname}")
-                    # logger.info(f"Auto-discovered model module: {modname}")
-            except ImportError as e:
-                    pass  # Keep it simple: ignore modules that fail to import
+                # logger.info(f"Auto-discovered model module: {modname}")
+            except Exception:
+                # Keep it simple: ignore modules that fail to import (training scripts, data ops, etc.)
+                pass
