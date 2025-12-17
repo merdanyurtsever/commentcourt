@@ -1,6 +1,4 @@
-MSE: 0.031193
-MAE: 0.107829
-R2: 0.492661
-Pearson correlation: 0.702284
-
-Test size: 3004
+MSE: 0.031267
+MAE: 0.100764
+R2: 0.491462
+Pearson: 0.704823
