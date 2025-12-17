@@ -5,8 +5,8 @@ import os
 from sklearn.metrics import mean_absolute_error
 
 # Config
-DATA_PATH = 'database/raw/Veri_Seti.xlsx'
-MODEL_PATH = 'model/merdan-modeller-train/weights/merdan_classic_model.pkl'
+DATA_PATH = 'database/raw/Veri_Seti_Cleaned_v2.xlsx'
+MODEL_PATH = 'model/merdan-modeller-train/weights/merdan_ultimate_ridge.pkl'
 
 # Helper (Must match your training logic)
 def derive_score(val, num_min=None, num_max=None):
@@ -74,7 +74,7 @@ def main():
     # *** INSERT PREPROCESS_TEXT FUNCTION HERE FROM YOUR TRAINING SCRIPT ***
     # (I will assume raw text for now to show you the logic, but results will be weak without stemming)
     # The clean way:
-    from merdan_classic import preprocess_text, extract_engineered_features, clean_text
+    from merdan_ridge_clean import preprocess_text, extract_engineered_features, clean_text
     
     # Preprocess
     texts = [preprocess_text(t) for t in df[comment_col].astype(str).values]

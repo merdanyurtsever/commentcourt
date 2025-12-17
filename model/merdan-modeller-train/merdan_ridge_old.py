@@ -26,7 +26,7 @@ except ImportError:
 
 # ---------- Config ----------
 DATA_PATH = 'database/raw/Veri_Seti.xlsx'
-MODEL_OUT = 'model/merdan-modeller-train/weights/merdan_classic_model.pkl'
+MODEL_OUT = 'model/merdan-modeller-train/weights/merdan_ridge_old.pkl'
 TEST_SIZE = 0.2
 RANDOM_STATE = 42
 
