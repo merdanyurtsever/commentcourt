@@ -11,6 +11,7 @@ from sklearn.linear_model import Ridge
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from scipy.sparse import hstack, csr_matrix
+from merdan_viz import save_visualizations
 
 # Dynamic Import for Turkish Stemmer
 try:
@@ -250,6 +251,29 @@ def main():
             'eng_names': eng_names
         }, f)
     print(f"Saved model to {MODEL_OUT}")
+    # --- VISUALIZATION BLOCK ---
+    print("Generating visuals...")
+    
+    # Collect hyperparameters for the report
+    # Ridge often has 'alpha' inside best_params_ if using GridSearchCV
+    params = {
+        'Model Type': 'Ultimate Ridge (Stem+Raw+Char)',
+        'Stem Max Feats': STEM_MAX_FEATURES,
+        'Raw Max Feats': RAW_MAX_FEATURES,
+        'Char Max Feats': CHAR_MAX_FEATURES,
+        'Best Alpha': grid.best_params_['alpha'], # Or reg.alpha_ if no grid search
+        'Test Size': TEST_SIZE,
+        'Random State': RANDOM_STATE
+    }
+    
+    save_visualizations(
+        y_true=y_test, 
+        y_pred=y_pred, 
+        model_name="Merdan_Ultimate_Ridge",
+        data_path=DATA_PATH,
+        hyperparams=params,
+        out_dir=os.path.dirname(MODEL_OUT)
+    )
 
 if __name__ == '__main__':
     main()

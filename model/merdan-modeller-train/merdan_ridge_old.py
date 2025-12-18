@@ -11,6 +11,7 @@ from sklearn.linear_model import Ridge
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from scipy.sparse import hstack, csr_matrix
+from merdan_viz import save_visualizations
 
 # Dynamic Import for Turkish Stemmer
 try:
@@ -247,6 +248,46 @@ def main():
     with open(MODEL_OUT, 'wb') as f:
         pickle.dump(pipeline_out, f)
     print(f"Saved optimized model to {MODEL_OUT}")
+    # --- VISUALIZATION BLOCK ---
+    print("Generating visuals...")
+    
+        
+    # --- VISUALIZATION BLOCK (FIXED) ---
+    print("Generating visuals...")
+    
+    # We need to grab the variables from the global scope or main's return
+    # Since main() doesn't return them, we must rely on what runs inside main()
+    # BUT: The standard Python pattern is to have main() return these or run this inside main().
+    # The snippet below assumes it is INDENTED to be INSIDE main() 
+    # OR you must move the variables out. 
+    
+    # To make this strictly correct without changing your structure too much, 
+    # I will assume you will paste this INSIDE the main() function, 
+    # right after the "Saved optimized model..." print statement.
+
+    # -------------------------------------------------------------------------
+    # COPY-PASTE THIS REPLACEMENT BLOCK *INSIDE* THE main() FUNCTION
+    # REPLACING THE BROKEN VISUALIZATION BLOCK
+    # -------------------------------------------------------------------------
+    
+    # Collect hyperparameters specific to THIS Classic Model
+    params = {
+        'Model Type': 'Classic Ridge (Word + Char + Eng)',
+        'Word Max Feats': TFIDF_MAX_WORD_FEATURES, # Fixed variable name
+        'Char Max Feats': TFIDF_MAX_CHAR_FEATURES, # Fixed variable name
+        'Best Alpha': grid.best_params_['alpha'],
+        'Test Size': TEST_SIZE,
+        'Random State': RANDOM_STATE
+    }
+    
+    save_visualizations(
+        y_true=y_test, 
+        y_pred=y_pred_test, # Fixed: was 'y_pred' which is undefined
+        model_name="Merdan_Classic_Ridge", # Fixed: Correct model name
+        data_path=DATA_PATH,
+        hyperparams=params,
+        out_dir=os.path.dirname(MODEL_OUT)
+    )
 
 if __name__ == '__main__':
     main()

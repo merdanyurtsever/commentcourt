@@ -12,6 +12,7 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from merdan_viz import save_visualizations
 
 # Validating Import
 try:
@@ -272,6 +273,36 @@ def main():
     with open(VOCAB_OUT, 'wb') as f:
         pickle.dump({'vocab': vocab, 'max_len': MAX_LEN, 'embed_dim': EMBED_DIM, 'filter_sizes': FILTER_SIZES, 'num_filters': NUM_FILTERS}, f)
     print("Saved model and vocab.")
+    
+    # --- VISUALIZATION BLOCK ---
+    print("Generating visuals...")
+    
+    # We need predictions on the VALIDATION/TEST set to visualize
+    # Assuming 'actuals' and 'preds' are your lists/arrays from the evaluation loop
+    
+    params = {
+        'Model Type': 'TextCNN_old (Deep Learning)',
+        'Embed Dim': EMBED_DIM,
+        'Filter Sizes': str(FILTER_SIZES),
+        'Num Filters': NUM_FILTERS,
+        'Batch Size': BATCH_SIZE,
+        'Learning Rate': LEARNING_RATE,
+        'Epochs Trained': EPOCHS,
+        'Dropout': DROPOUT
+    }
+    
+    # Convert lists to numpy arrays if they aren't already
+    y_viz_true = np.array(actuals)
+    y_viz_pred = np.array(preds)
+    
+    save_visualizations(
+        y_true=y_viz_true,
+        y_pred=y_viz_pred, 
+        model_name="Merdan_TextCNN_old", 
+        data_path=DATA_PATH, 
+        hyperparams=params,
+        out_dir=os.path.dirname(MODEL_OUT)
+    )
 
 if __name__ == '__main__':
     main()
