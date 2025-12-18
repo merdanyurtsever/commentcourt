@@ -144,8 +144,7 @@ def main():
         raise ValueError("Could not find required columns.")
 
     df = df.dropna(subset=[comment_col])
-    raw_comments = df[comment_col].astype(str).values 
-
+    
     # Normalize Scores
     numeric_ratings = pd.to_numeric(df[rating_col], errors='coerce')
     num_min = None if numeric_ratings.dropna().empty else float(numeric_ratings.min())
@@ -175,16 +174,14 @@ def main():
 
     # Vectorization
     print("Vectorizing...")
-    # Word: Unigrams & Bigrams
     word_vectorizer = TfidfVectorizer(
         max_features=TFIDF_MAX_WORD_FEATURES, 
-        stop_words=None, # Already handled manually to protect negation
+        stop_words=None, 
         ngram_range=(1, 2), 
         min_df=TFIDF_MIN_DF, 
         max_df=TFIDF_MAX_DF, 
         sublinear_tf=True
     )
-    # Char: 3-5 grams (Captures roots even if stemming fails)
     char_vectorizer = TfidfVectorizer(
         analyzer='char', 
         ngram_range=(3, 5), 
@@ -217,7 +214,6 @@ def main():
 
     # Evaluation
     y_pred_test = best_model.predict(X_test)
-    # Clip predictions to 0-1 range (Ridge can overshoot)
     y_pred_test = np.clip(y_pred_test, 0.0, 1.0)
 
     mse = mean_squared_error(y_test, y_pred_test)
@@ -230,11 +226,10 @@ def main():
     print(f"R2: {r2:.6f}")
     print(f"Pearson correlation: {corr:.6f}")
 
-    # Save
+    # Save Report
     out_dir = os.path.dirname(MODEL_OUT) or '.'
     os.makedirs(out_dir, exist_ok=True)
     
-    # Save Report
     with open(os.path.join(out_dir, 'merdan_classic_regression_report.txt'), 'w', encoding='utf-8') as rf:
         rf.write(f"MSE: {mse:.6f}\nMAE: {mae:.6f}\nR2: {r2:.6f}\nPearson: {corr:.6f}\n")
 
@@ -248,42 +243,25 @@ def main():
     with open(MODEL_OUT, 'wb') as f:
         pickle.dump(pipeline_out, f)
     print(f"Saved optimized model to {MODEL_OUT}")
-    # --- VISUALIZATION BLOCK ---
-    print("Generating visuals...")
-    
-        
-    # --- VISUALIZATION BLOCK (FIXED) ---
-    print("Generating visuals...")
-    
-    # We need to grab the variables from the global scope or main's return
-    # Since main() doesn't return them, we must rely on what runs inside main()
-    # BUT: The standard Python pattern is to have main() return these or run this inside main().
-    # The snippet below assumes it is INDENTED to be INSIDE main() 
-    # OR you must move the variables out. 
-    
-    # To make this strictly correct without changing your structure too much, 
-    # I will assume you will paste this INSIDE the main() function, 
-    # right after the "Saved optimized model..." print statement.
 
-    # -------------------------------------------------------------------------
-    # COPY-PASTE THIS REPLACEMENT BLOCK *INSIDE* THE main() FUNCTION
-    # REPLACING THE BROKEN VISUALIZATION BLOCK
-    # -------------------------------------------------------------------------
+    # --- VISUALIZATION BLOCK (CLEANED) ---
+    print("Generating visuals...")
     
-    # Collect hyperparameters specific to THIS Classic Model
     params = {
         'Model Type': 'Classic Ridge (Word + Char + Eng)',
-        'Word Max Feats': TFIDF_MAX_WORD_FEATURES, # Fixed variable name
-        'Char Max Feats': TFIDF_MAX_CHAR_FEATURES, # Fixed variable name
+        'Word Max Feats': TFIDF_MAX_WORD_FEATURES,
+        'Char Max Feats': TFIDF_MAX_CHAR_FEATURES,
         'Best Alpha': grid.best_params_['alpha'],
         'Test Size': TEST_SIZE,
         'Random State': RANDOM_STATE
     }
     
+    # We pass 'history=None' implicitly since it's optional in the new merdan_viz.py
+    # Ridge regression doesn't have training epochs like deep learning
     save_visualizations(
         y_true=y_test, 
-        y_pred=y_pred_test, # Fixed: was 'y_pred' which is undefined
-        model_name="Merdan_Classic_Ridge", # Fixed: Correct model name
+        y_pred=y_pred_test, 
+        model_name="Merdan_Classic_Ridge",
         data_path=DATA_PATH,
         hyperparams=params,
         out_dir=os.path.dirname(MODEL_OUT)

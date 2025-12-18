@@ -205,6 +205,9 @@ def main():
     best_loss = float('inf')
     patience_counter = 0
 
+    # Initialize history tracking for visuals
+    history = {'train_loss': [], 'val_loss': []}
+
     for epoch in range(EPOCHS):
         model.train()
         total_loss = 0
@@ -228,6 +231,10 @@ def main():
         
         avg_train = total_loss / len(train_loader)
         avg_val = val_loss / len(val_loader)
+        
+        # Update History
+        history['train_loss'].append(avg_train)
+        history['val_loss'].append(avg_val)
         
         scheduler.step(avg_val)
         current_lr = optimizer.param_groups[0]['lr']
@@ -277,9 +284,6 @@ def main():
     # --- VISUALIZATION BLOCK ---
     print("Generating visuals...")
     
-    # We need predictions on the VALIDATION/TEST set to visualize
-    # Assuming 'actuals' and 'preds' are your lists/arrays from the evaluation loop
-    
     params = {
         'Model Type': 'TextCNN_old (Deep Learning)',
         'Embed Dim': EMBED_DIM,
@@ -287,11 +291,11 @@ def main():
         'Num Filters': NUM_FILTERS,
         'Batch Size': BATCH_SIZE,
         'Learning Rate': LEARNING_RATE,
-        'Epochs Trained': EPOCHS,
+        'Epochs Trained': len(history['train_loss']), # Actual epochs run
         'Dropout': DROPOUT
     }
     
-    # Convert lists to numpy arrays if they aren't already
+    # Convert lists to numpy arrays
     y_viz_true = np.array(actuals)
     y_viz_pred = np.array(preds)
     
@@ -301,7 +305,8 @@ def main():
         model_name="Merdan_TextCNN_old", 
         data_path=DATA_PATH, 
         hyperparams=params,
-        out_dir=os.path.dirname(MODEL_OUT)
+        out_dir=os.path.dirname(MODEL_OUT),
+        history=history # Pass history for loss curves
     )
 
 if __name__ == '__main__':

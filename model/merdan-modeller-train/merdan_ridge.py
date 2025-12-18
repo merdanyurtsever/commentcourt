@@ -25,24 +25,21 @@ except ImportError:
     stemmer = IdentityStemmer()
 
 # ---------- Config ----------
-DATA_PATH = 'database/raw/Veri_Seti_Cleaned_v2.xlsx' # Use the cleaned file if you have it!
+DATA_PATH = 'database/raw/Veri_Seti_Cleaned_v2.xlsx' # Use the cleaned file!
 MODEL_OUT = 'model/merdan-modeller-train/weights/merdan_ultimate_ridge.pkl'
 TEST_SIZE = 0.2
 RANDOM_STATE = 42
 
 # 1. STEMMED View Config (Focus: Topic)
-# We only need unigrams here to know "this is about a phone" vs "this is about cargo"
 STEM_MAX_FEATURES = 20000
 
 # 2. RAW View Config (Focus: Sentiment & Phrase Context)
-# We capture "hiç beğenmedim" etc. here
 RAW_MAX_FEATURES = 50000
 RAW_NGRAM_RANGE = (1, 4)
 
 # 3. CHAR View Config (Focus: Morphology/Suffixes)
-# Captures "-medi", "-miyor" even if words are unique
 CHAR_MAX_FEATURES = 40000
-CHAR_NGRAM_RANGE = (2, 8) # Expanded range to catch longer suffixes
+CHAR_NGRAM_RANGE = (2, 8) 
 
 NEGATION_WORDS = {'değil', 'yok', 'hiç', 'ama', 'fakat', 'asla', 'olmayan', 'hayır', 'ne'}
 
@@ -69,7 +66,6 @@ def preprocess_stemmed(text: str, stop_words_list=None) -> str:
     tokens = cleaned.split()
     final = []
     for t in tokens:
-        # Don't remove negation words even in stemmed view
         if stop_words_list and t in stop_words_list and t not in NEGATION_WORDS:
             continue
         try:
@@ -80,7 +76,6 @@ def preprocess_stemmed(text: str, stop_words_list=None) -> str:
 
 def preprocess_raw(text: str) -> str:
     """ Minimal cleaning. Preserves suffixes. Good for Sentiment detection. """
-    # No stemming! No stopword removal!
     return clean_text(text)
 
 def extract_engineered_features(texts):
@@ -125,7 +120,6 @@ def derive_score(val, num_min=None, num_max=None):
 
 def main():
     if not os.path.exists(DATA_PATH):
-        # Fallback to original if cleaned doesn't exist
         print(f"Cleaned data not found. Falling back to original.")
         f_path = 'database/raw/Veri_Seti.xlsx'
     else:
@@ -168,7 +162,7 @@ def main():
     
     vec_stem = TfidfVectorizer(
         max_features=STEM_MAX_FEATURES,
-        ngram_range=(1, 1), # Only unigrams for stemmed
+        ngram_range=(1, 1), 
         min_df=5,
         max_df=0.90,
         sublinear_tf=True
@@ -181,7 +175,7 @@ def main():
     
     vec_raw = TfidfVectorizer(
         max_features=RAW_MAX_FEATURES,
-        ngram_range=RAW_NGRAM_RANGE, # Unigrams, Bigrams, Trigrams
+        ngram_range=RAW_NGRAM_RANGE, 
         min_df=3,
         max_df=0.90,
         sublinear_tf=True
@@ -192,11 +186,10 @@ def main():
     print("Preprocessing View 3: Char N-Grams...")
     vec_char = TfidfVectorizer(
         analyzer='char',
-        ngram_range=CHAR_NGRAM_RANGE, # Expanded to (3,6)
+        ngram_range=CHAR_NGRAM_RANGE,
         max_features=CHAR_MAX_FEATURES,
         sublinear_tf=True
     )
-    # We use X_raw here because char n-grams on stemmed text are useless
     X_vec_char = vec_char.fit_transform(X_raw)
 
     # 4. Engineered Features
@@ -206,7 +199,6 @@ def main():
 
     # STACK EVERYTHING
     print("Stacking features...")
-    # This matrix is now very wide, covering every angle
     X = hstack([X_vec_stem, X_vec_raw, X_vec_char, X_eng_sparse], format='csr')
     y = df['score'].values
 
@@ -217,7 +209,6 @@ def main():
 
     # Grid Search
     print("Tuning Ridge Regression (GridSearch)...")
-    # 'auto' solver chooses the fastest based on data shape (likely 'sag' or 'sparse_cg')
     param_grid = {'alpha': [0.1, 0.5, 1.0, 2.0, 5.0, 10.0], 'solver': ['auto']}
     grid = GridSearchCV(Ridge(), param_grid, cv=5, scoring='neg_mean_squared_error', n_jobs=-1)
     grid.fit(X_train, y_train)
@@ -241,7 +232,10 @@ def main():
     print(f"Pearson: {corr:.6f}")
 
     # Save
-    os.makedirs(os.path.dirname(MODEL_OUT), exist_ok=True)
+    out_dir = os.path.dirname(MODEL_OUT) or '.'
+    os.makedirs(out_dir, exist_ok=True)
+    
+    # Save Model
     with open(MODEL_OUT, 'wb') as f:
         pickle.dump({
             'model': best_model,
@@ -251,17 +245,17 @@ def main():
             'eng_names': eng_names
         }, f)
     print(f"Saved model to {MODEL_OUT}")
+
     # --- VISUALIZATION BLOCK ---
     print("Generating visuals...")
     
     # Collect hyperparameters for the report
-    # Ridge often has 'alpha' inside best_params_ if using GridSearchCV
     params = {
         'Model Type': 'Ultimate Ridge (Stem+Raw+Char)',
         'Stem Max Feats': STEM_MAX_FEATURES,
         'Raw Max Feats': RAW_MAX_FEATURES,
         'Char Max Feats': CHAR_MAX_FEATURES,
-        'Best Alpha': grid.best_params_['alpha'], # Or reg.alpha_ if no grid search
+        'Best Alpha': grid.best_params_['alpha'], 
         'Test Size': TEST_SIZE,
         'Random State': RANDOM_STATE
     }
@@ -270,9 +264,9 @@ def main():
         y_true=y_test, 
         y_pred=y_pred, 
         model_name="Merdan_Ultimate_Ridge",
-        data_path=DATA_PATH,
+        data_path=f_path,
         hyperparams=params,
-        out_dir=os.path.dirname(MODEL_OUT)
+        out_dir=out_dir
     )
 
 if __name__ == '__main__':

@@ -1,0 +1,13 @@
+Model: Merdan_Ultimate_Ridge
+------------------------------
+              precision    recall  f1-score   support
+
+           1       1.00      0.18      0.30       102
+           2       0.06      0.08      0.07        37
+           3       0.17      0.23      0.20        94
+           4       0.25      0.41      0.31       316
+           5       0.92      0.86      0.89      2455
+
+    accuracy                           0.76      3004
+   macro avg       0.48      0.35      0.35      3004
+weighted avg       0.82      0.76      0.78      3004
