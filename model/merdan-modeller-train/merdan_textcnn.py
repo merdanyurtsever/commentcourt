@@ -22,9 +22,9 @@ except ImportError:
     raise ImportError("Please run: pip install TurkishStemmer")
 
 # ---------- Config ----------
-DATA_PATH = 'database/raw/Veri_Seti.xlsx'
-MODEL_OUT = 'model/merdan-modeller-train/weights/merdan_textcnn_model_old.pth'
-VOCAB_OUT = 'model/merdan-modeller-train/weights/merdan_textcnn_vocab_old.pkl'
+DATA_PATH = 'database/raw/Veri_Seti_Cleaned_v2.xlsx'
+MODEL_OUT = 'model/merdan-modeller-train/weights/merdan_textcnn_model.pth'
+VOCAB_OUT = 'model/merdan-modeller-train/weights/merdan_textcnn_vocab.pkl'
 
 # Hyperparameters (Tuned for higher metrics)
 MAX_LEN = 100
@@ -190,8 +190,8 @@ def main():
     # Split
     X_train, X_val, y_train, y_val = train_test_split(texts, y, test_size=TEST_SIZE, random_state=RANDOM_STATE)
     
-    train_loader = DataLoader(SentimentDataset(X_train, y_train, vocab, MAX_LEN), batch_size=BATCH_SIZE, shuffle=True)
-    val_loader = DataLoader(SentimentDataset(X_val, y_val, vocab, MAX_LEN), batch_size=BATCH_SIZE, shuffle=False)
+    train_loader = DataLoader(SentimentDataset(X_train, y_train, vocab, MAX_LEN), batch_size=BATCH_SIZE, shuffle=True, num_workers=2, persistent_workers=True)
+    val_loader = DataLoader(SentimentDataset(X_val, y_val, vocab, MAX_LEN), batch_size=BATCH_SIZE, shuffle=False, num_workers=2, persistent_workers=True)
 
     # Init Model
     model = TextCNN(len(vocab.stoi), EMBED_DIM, FILTER_SIZES, NUM_FILTERS, DROPOUT).to(device)

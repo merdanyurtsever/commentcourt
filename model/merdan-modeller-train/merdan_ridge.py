@@ -31,17 +31,17 @@ RANDOM_STATE = 42
 
 # 1. STEMMED View Config (Focus: Topic)
 # We only need unigrams here to know "this is about a phone" vs "this is about cargo"
-STEM_MAX_FEATURES = 5000 
+STEM_MAX_FEATURES = 20000
 
 # 2. RAW View Config (Focus: Sentiment & Phrase Context)
-# We capture "hiç beğenmedim" here using up to Trigrams
-RAW_MAX_FEATURES = 15000
-RAW_NGRAM_RANGE = (1, 3)
+# We capture "hiç beğenmedim" etc. here
+RAW_MAX_FEATURES = 50000
+RAW_NGRAM_RANGE = (1, 4)
 
 # 3. CHAR View Config (Focus: Morphology/Suffixes)
 # Captures "-medi", "-miyor" even if words are unique
-CHAR_MAX_FEATURES = 10000
-CHAR_NGRAM_RANGE = (3, 6) # Expanded range to catch longer suffixes
+CHAR_MAX_FEATURES = 40000
+CHAR_NGRAM_RANGE = (2, 8) # Expanded range to catch longer suffixes
 
 NEGATION_WORDS = {'değil', 'yok', 'hiç', 'ama', 'fakat', 'asla', 'olmayan', 'hayır', 'ne'}
 

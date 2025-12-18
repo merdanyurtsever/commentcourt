@@ -22,9 +22,9 @@ except ImportError:
     raise ImportError("Please run: pip install TurkishStemmer")
 
 # ---------- Config ----------
-DATA_PATH = 'database/raw/Veri_Seti_Cleaned_v2.xlsx'
-MODEL_OUT = 'model/merdan-modeller-train/weights/merdan_textcnn_model.pth'
-VOCAB_OUT = 'model/merdan-modeller-train/weights/merdan_textcnn_vocab.pkl'
+DATA_PATH = 'database/raw/Veri_Seti.xlsx'
+MODEL_OUT = 'model/merdan-modeller-train/weights/merdan_textcnn_model_old.pth'
+VOCAB_OUT = 'model/merdan-modeller-train/weights/merdan_textcnn_vocab_old.pkl'
 
 # Hyperparameters (Tuned for higher metrics)
 MAX_LEN = 100
