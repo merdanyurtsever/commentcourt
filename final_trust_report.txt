@@ -1,0 +1,63 @@
+==================================================
+          FİNAL GÜVEN SKORU RAPORU               
+==================================================
+
+--------------------------------------------------
+ EN İYİ İNFLUENCERLER (ortalama ürün güvenilirliği)
+--------------------------------------------------
+Influencer                     | Trust Score
+---------------------------------------------
+deneme-liste-80817200          | 0.8218
+oyun-ekipmanlari-80927000      | 0.8166
+oyun-ekipmanlari-final-80929150 | 0.8126
+kahve-keyfi-80927450           | 0.8028
+cilt-bakim-80927050            | 0.7911
+akilli-ev-80926551             | 0.7873
+kamp-malzemeleri-80927400      | 0.7806
+
+
+--------------------------------------------------
+ ÜRÜN TRUST SCORELARI
+--------------------------------------------------
+Product                                            | Influencer           | Score     
+-------------------------------------------------------------------------------------
+684955456                                          | oyun-ekipmanlari-..  | 0.8612
+483644115                                          | oyun-ekipmanlari-..  | 0.8386
+587469308                                          | oyun-ekipmanlari-..  | 0.8371
+686353543                                          | deneme-liste-8081..  | 0.8359
+686352019                                          | deneme-liste-8081..  | 0.8336
+676402248                                          | kahve-keyfi-80927..  | 0.8323
+509792120                                          | kahve-keyfi-80927..  | 0.8300
+647552483                                          | oyun-ekipmanlari-..  | 0.8241
+467391142                                          | cilt-bakim-809270..  | 0.8240
+690619415                                          | deneme-liste-8081..  | 0.8214
+632204185                                          | akilli-ev-8092655..  | 0.8208
+628807597                                          | oyun-ekipmanlari-..  | 0.8208
+651485910                                          | cilt-bakim-809270..  | 0.8184
+686350005                                          | deneme-liste-8081..  | 0.8171
+651131021                                          | oyun-ekipmanlari-..  | 0.8166
+701829051                                          | akilli-ev-8092655..  | 0.8157
+580699164                                          | kamp-malzemeleri-..  | 0.8153
+591695347                                          | oyun-ekipmanlari-..  | 0.8145
+679506984                                          | oyun-ekipmanlari-..  | 0.8140
+522977418                                          | cilt-bakim-809270..  | 0.8126
+568477433                                          | kahve-keyfi-80927..  | 0.8106
+622774054                                          | oyun-ekipmanlari-..  | 0.8083
+679506900                                          | oyun-ekipmanlari-..  | 0.8059
+566897145                                          | oyun-ekipmanlari-..  | 0.8037
+686054441                                          | deneme-liste-8081..  | 0.8008
+632576497                                          | akilli-ev-8092655..  | 0.7998
+628806721                                          | oyun-ekipmanlari-..  | 0.7996
+514906370                                          | oyun-ekipmanlari-..  | 0.7975
+708362869                                          | oyun-ekipmanlari-..  | 0.7964
+720059238                                          | akilli-ev-8092655..  | 0.7963
+642842768                                          | oyun-ekipmanlari-..  | 0.7949
+711493618                                          | kamp-malzemeleri-..  | 0.7874
+715638861                                          | kahve-keyfi-80927..  | 0.7782
+409417966                                          | kamp-malzemeleri-..  | 0.7726
+549971329                                          | cilt-bakim-809270..  | 0.7689
+404533196                                          | kamp-malzemeleri-..  | 0.7681
+711669493                                          | kahve-keyfi-80927..  | 0.7629
+663248482                                          | kamp-malzemeleri-..  | 0.7596
+723583574                                          | cilt-bakim-809270..  | 0.7316
+635348808                                          | akilli-ev-8092655..  | 0.7036
